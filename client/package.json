@@ -1,0 +1,26 @@
+{
+  "name": "sist-events-client",
+  "version": "1.0.0",
+  "description": "SIST-EVENTS frontend — React + Vite + Tailwind CSS",
+  "private": true,
+  "scripts": {
+    "dev":     "vite",
+    "build":   "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "axios":        "^1.6.2",
+    "lucide-react": "^0.383.0",
+    "react":        "^18.2.0",
+    "react-dom":    "^18.2.0"
+  },
+  "devDependencies": {
+    "@types/react":          "^18.2.15",
+    "@types/react-dom":      "^18.2.7",
+    "@vitejs/plugin-react":  "^4.0.3",
+    "autoprefixer":          "^10.4.16",
+    "postcss":               "^8.4.31",
+    "tailwindcss":           "^3.3.5",
+    "vite":                  "^4.4.5"
+  }
+}
