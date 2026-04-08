@@ -1,0 +1,206 @@
+/* ═══════════════════════════════════════════════════
+   MOBILE OPTIMIZATIONS — paste at the END of App.css
+════════════════════════════════════════════════════ */
+
+/* ── BOTTOM NAV ──────────────────────────────────── */
+.bottom-nav {
+  position: fixed;
+  bottom: 0; left: 0; right: 0;
+  height: calc(64px + env(safe-area-inset-bottom));
+  padding-bottom: env(safe-area-inset-bottom);
+  background: rgba(3, 8, 16, 0.96);
+  backdrop-filter: blur(24px) saturate(1.5);
+  -webkit-backdrop-filter: blur(24px) saturate(1.5);
+  border-top: 1px solid var(--border-subtle);
+  display: flex;
+  z-index: 100;
+
+  /* Only show on mobile */
+  display: none;
+}
+
+@media (max-width: 767px) {
+  .bottom-nav { display: flex; }
+}
+
+.bn-item {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  cursor: pointer;
+  padding: 8px 4px 4px;
+  background: none;
+  border: none;
+  transition: opacity 0.15s;
+  -webkit-tap-highlight-color: transparent;
+  min-height: 44px;
+}
+.bn-item:active { opacity: 0.7; }
+
+.bn-icon {
+  width: 22px; height: 22px;
+  display: flex; align-items: center; justify-content: center;
+  color: var(--text-muted);
+  transition: color 0.2s;
+}
+.bn-label {
+  font-size: 0.58rem; font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--text-muted);
+  transition: color 0.2s;
+}
+.bn-item.active .bn-icon,
+.bn-item.active .bn-label { color: var(--amber-500); }
+
+/* Center HOST button — raised pill */
+.bn-host {
+  flex: 1.3;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  padding-bottom: 6px;
+  cursor: pointer;
+  background: none; border: none;
+  -webkit-tap-highlight-color: transparent;
+}
+.bn-host:active .bn-host-circle { transform: scale(0.92); }
+
+.bn-host-circle {
+  width: 48px; height: 48px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--amber-400), var(--amber-600));
+  display: flex; align-items: center; justify-content: center;
+  box-shadow: 0 4px 18px rgba(245,158,11,0.45);
+  margin-top: -20px; /* raise above nav bar */
+  transition: transform 0.15s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.15s;
+}
+.bn-host-circle:hover { box-shadow: 0 6px 24px rgba(245,158,11,0.6); }
+
+.bn-host-label {
+  font-size: 0.58rem; font-weight: 700;
+  color: var(--amber-500);
+  margin-top: 3px;
+  letter-spacing: 0.02em;
+}
+
+/* ── HIDE desktop elements on mobile ────────────── */
+@media (max-width: 767px) {
+  /* Push page content up so bottom nav doesn't overlap */
+  .page, #root > footer { margin-bottom: calc(64px + env(safe-area-inset-bottom)); }
+
+  /* Slim down the top navbar */
+  .navbar { padding-top: calc(8px + var(--safe-top)); padding-bottom: 8px; }
+
+  /* Hide desktop nav action buttons — moved to bottom nav */
+  .nav-desktop-only { display: none !important; }
+
+  /* Hero: compact on mobile */
+  .hero { padding: 24px 0 20px; }
+  .hero-title { font-size: clamp(1.8rem, 8vw, 2.4rem); }
+  .hero-sub { font-size: 0.85rem; margin-bottom: 20px; }
+  .hero-cta { gap: 8px; }
+  .hero-cta .btn-lg { padding: 11px 20px; font-size: 0.88rem; min-height: 48px; }
+
+  /* Cards: tighter on mobile */
+  .event-card { border-radius: 14px; }
+  .card-placeholder { aspect-ratio: 16/8; }   /* shorter image on mobile */
+  .card-body { padding: 14px; gap: 8px; }
+  .card-footer { padding: 10px 14px; }
+  .card-title { font-size: 0.95rem; }
+  .card-meta-row { font-size: 0.74rem; }
+  .register-btn { min-height: 44px; font-size: 0.82rem; }
+
+  /* Search: full bleed on mobile */
+  .search-wrapper { margin-bottom: 14px; }
+  .search-input { height: 48px; font-size: 0.92rem; }
+
+  /* Filter chips: slightly smaller */
+  .filter-bar { margin-bottom: 18px; gap: 6px; }
+  .chip { height: 34px; padding: 6px 13px; font-size: 0.76rem; }
+
+  /* Section heading: tighter */
+  .section-head { margin-bottom: 14px; }
+  .section-title { font-size: 1.15rem; }
+
+  /* Grid: single column guaranteed */
+  .events-grid { grid-template-columns: 1fr; gap: 14px; }
+
+  /* Modals: true bottom sheet on mobile */
+  .modal { border-radius: 24px 24px 0 0; }
+  .modal-body { padding: 18px; }
+  .modal-header { padding: 16px 18px 14px; }
+
+  /* Dashboard: compact stats */
+  .stat-card { padding: 12px; }
+  .stat-val { font-size: 1.6rem; }
+  .stat-label { font-size: 0.62rem; }
+
+  /* Queue items: stack actions below on tiny screens */
+  .queue-item { grid-template-columns: 1fr; gap: 10px; }
+  .queue-actions { flex-direction: row; justify-content: flex-end; }
+
+  /* Login card: full-width */
+  .login-card { padding: 28px 20px; border-radius: 20px; }
+
+  /* Container padding tighter on phones */
+  .container { padding: 0 14px; }
+}
+
+/* ── TABLET (2-col cards) ────────────────────────── */
+@media (min-width: 600px) and (max-width: 767px) {
+  .events-grid { grid-template-columns: repeat(2, 1fr); gap: 14px; }
+}
+
+/* ── EXTRA small phones ──────────────────────────── */
+@media (max-width: 374px) {
+  .hero-title { font-size: 1.6rem; }
+  .chip { height: 30px; padding: 5px 10px; font-size: 0.7rem; }
+  .bn-host-circle { width: 42px; height: 42px; }
+}
+
+/* ── TOUCH feedback ──────────────────────────────── */
+@media (hover: none) {
+  /* Stronger press feel on real touch screens */
+  .event-card:active { transform: scale(0.98); }
+  .register-btn:active { transform: scale(0.96); background: rgba(245,158,11,0.25); }
+  .chip:active { transform: scale(0.94); }
+  .btn:active { transform: scale(0.94); }
+}
+
+/* ── PULL INDICATOR (visual only) ───────────────── */
+.pull-hint {
+  text-align: center;
+  padding: 10px 0 4px;
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+}
+
+/* ── MOBILE FORM ─────────────────────────────────── */
+@media (max-width: 767px) {
+  /* Side-by-side date/venue → stack on tiny phones */
+  .form-row-2col {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* Bigger tap targets for form fields */
+  .form-input, .form-select { min-height: 52px; font-size: 1rem; }
+  .form-textarea { font-size: 1rem; }
+
+  /* Full-width submit */
+  .form-submit { min-height: 54px; font-size: 1rem; }
+}
+
+/* ── DASHBOARD MOBILE ────────────────────────────── */
+@media (max-width: 767px) {
+  .dash-tabs { gap: 2px; }
+  .dash-tab { font-size: 0.74rem; padding: 8px 6px; gap: 4px; }
+  .count-badge { font-size: 0.6rem; padding: 1px 5px; }
+}
