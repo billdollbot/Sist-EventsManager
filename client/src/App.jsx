@@ -113,7 +113,7 @@ function EventsFeed({ guestName, onRequestLogin, showToast, onHostClick }) {
           <Zap size={11} /> Sathyabama Institute · Chennai
         </div>
         <h1 className="hero-title animate-in" style={{ animationDelay: "0.1s" }}>
-          Campus Events Hub
+          SDC Club Events Hub
         </h1>
         <p className="hero-sub animate-in" style={{ animationDelay: "0.15s" }}>
           Workshops, hackathons, fests and more — all in one place.
