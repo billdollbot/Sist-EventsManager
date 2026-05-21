@@ -1,19 +1,20 @@
 /**
- * SIST-EVENTS — server.js (v3)
- * Roles: admin | faculty | student
+ * SDC Club Events Hub — server.js v4
+ * Public: anyone can view approved events (no login for students)
+ * Roles:  admin | faculty
  */
 
-const express    = require("express");
-const mongoose   = require("mongoose");
-const multer     = require("multer");
-const cors       = require("cors");
-const path       = require("path");
-const fs         = require("fs");
-const cron       = require("node-cron");
+const express  = require("express");
+const mongoose = require("mongoose");
+const multer   = require("multer");
+const cors     = require("cors");
+const path     = require("path");
+const fs       = require("fs");
+const cron     = require("node-cron");
 
 const app   = express();
-const PORT  = process.env.PORT  || 5000;
-const MONGO = process.env.MONGO_URI || "mongodb+srv://midhun:midhun123@sistevents.ystmyb0.mongodb.net/?appName=SistEvents";
+const PORT  = process.env.PORT     || 5000;
+const MONGO = process.env.MONGO_URI|| "mongodb://localhost:27017/sdc-events";
 
 /* ── Middleware ─────────────────────────────────── */
 app.use(cors({ origin: process.env.CLIENT_URL || "http://localhost:3000" }));
@@ -28,284 +29,262 @@ if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
 /* ── Multer ─────────────────────────────────────── */
 const storage = multer.diskStorage({
   destination: (_r, _f, cb) => cb(null, uploadDir),
-  filename:    (_r, file, cb) => cb(null, `${Date.now()}-${Math.round(Math.random()*1e9)}${path.extname(file.originalname)}`),
+  filename:    (_r, f,  cb) => cb(null, `${Date.now()}-${Math.round(Math.random()*1e9)}${path.extname(f.originalname)}`),
 });
 const upload = multer({
   storage,
-  fileFilter: (_r, file, cb) => {
-    /jpeg|jpg|png|gif|webp/.test(file.mimetype) ? cb(null, true) : cb(new Error("Images only"));
-  },
+  fileFilter: (_r, f, cb) => /jpeg|jpg|png|gif|webp/.test(f.mimetype) ? cb(null,true) : cb(new Error("Images only")),
   limits: { fileSize: 5 * 1024 * 1024 },
 });
 
-/* ── DB ─────────────────────────────────────────── */
+/* ── MongoDB ────────────────────────────────────── */
 mongoose.connect(MONGO)
   .then(() => console.log("✅  MongoDB connected"))
-  .catch(err => console.error("❌  MongoDB error:", err));
+  .catch(err => console.error("❌  MongoDB:", err));
 
 /* ══════════════════════════════════════════════════
    SCHEMAS
 ══════════════════════════════════════════════════ */
 
-/* Admin */
 const adminSchema = new mongoose.Schema({
-  username: { type: String, unique: true, required: true },
-  password: { type: String, required: true },
-  name:     { type: String, default: "Super Admin" },
-}, { timestamps: true });
+  username: { type:String, unique:true, required:true },
+  password: { type:String, required:true },
+  name:     { type:String, default:"Super Admin" },
+}, { timestamps:true });
 const Admin = mongoose.model("Admin", adminSchema);
 
-/* Faculty */
 const facultySchema = new mongoose.Schema({
-  username:   { type: String, unique: true, required: true, trim: true },
-  password:   { type: String, required: true },
-  name:       { type: String, required: true, trim: true },
-  department: { type: String, trim: true, default: "" },
-  isActive:   { type: Boolean, default: true },
-}, { timestamps: true });
+  username:   { type:String, unique:true, required:true, trim:true },
+  password:   { type:String, required:true },
+  name:       { type:String, required:true, trim:true },
+  department: { type:String, trim:true, default:"" },
+  isActive:   { type:Boolean, default:true },
+}, { timestamps:true });
 const Faculty = mongoose.model("Faculty", facultySchema);
 
-/* Student */
-const studentSchema = new mongoose.Schema({
-  register_number: { type: String, unique: true, required: true, trim: true, uppercase: true },
-  password:        { type: String, required: true },
-  name:            { type: String, required: true, trim: true },
-  department:      { type: String, trim: true, default: "" },
-  year:            { type: String, enum: ["1","2","3","4","PG"], default: "1" },
-  isActive:        { type: Boolean, default: true },
-}, { timestamps: true });
-const Student = mongoose.model("Student", studentSchema);
+/* SDC Clubs list — stored in DB so admin can manage */
+const clubSchema = new mongoose.Schema({
+  name:      { type:String, unique:true, required:true, trim:true },
+  shortCode: { type:String, trim:true, default:"" },
+  isActive:  { type:Boolean, default:true },
+}, { timestamps:true });
+const Club = mongoose.model("Club", clubSchema);
 
-/* Event */
 const eventSchema = new mongoose.Schema({
-  title:             { type: String, required: true, trim: true, maxlength: 120 },
-  category:          { type: String, required: true, enum: ["Technical","Cultural","Workshop","Sports","Seminar","Hackathon","Other"] },
-  organizer:         { type: String, required: true, trim: true },
-  event_date:        { type: Date,   required: true },
-  location:          { type: String, required: true, trim: true },
-  description:       { type: String, required: true, maxlength: 1000 },
-  registration_link: { type: String, trim: true },
-  brochure_path:     { type: String, default: null },
-  created_by:        { type: String, required: true },
-  created_by_id:     { type: mongoose.Schema.Types.ObjectId, ref: "Faculty" },
-  status:            { type: String, enum: ["pending","approved","rejected"], default: "pending" },
-}, { timestamps: true });
+  title:             { type:String, required:true, trim:true, maxlength:120 },
+  category:          { type:String, required:true, enum:["Technical","Cultural","Workshop","Sports","Seminar","Hackathon","Other"] },
+  club:              { type:String, required:true, trim:true },
+  organizer:         { type:String, required:true, trim:true },
+  event_date:        { type:Date,   required:true },
+  location:          { type:String, required:true, trim:true },
+  description:       { type:String, required:true, maxlength:1000 },
+  registration_link: { type:String, trim:true },
+  brochure_path:     { type:String, default:null },
+  created_by:        { type:String, required:true },
+  created_by_id:     { type:mongoose.Schema.Types.ObjectId, ref:"Faculty" },
+  status:            { type:String, enum:["pending","approved","rejected"], default:"pending" },
+}, { timestamps:true });
 const Event = mongoose.model("Event", eventSchema);
 
-/* ── Seed default admin ─────────────────────────── */
+/* ── Seed defaults ──────────────────────────────── */
 mongoose.connection.once("open", async () => {
-  const exists = await Admin.findOne({ username: "admin" });
-  if (!exists) {
-    await Admin.create({ username: "admin", password: "admin123", name: "Super Admin" });
-    console.log("🌱  Admin seeded  →  admin / admin123");
+  /* Admin */
+  if (!await Admin.findOne({ username:"admin" })) {
+    await Admin.create({ username:"admin", password:"admin123", name:"Super Admin" });
+    console.log("🌱  Admin seeded → admin / admin123");
   }
+  /* Default SDC clubs */
+  const defaultClubs = [
+    { name:"Software Development Club (SDC)", shortCode:"SDC" },
+    { name:"IEEE Student Branch",              shortCode:"IEEE" },
+    { name:"CSI Student Chapter",              shortCode:"CSI" },
+    { name:"Google Developer Student Club",    shortCode:"GDSC" },
+    { name:"Coding Club",                      shortCode:"CC" },
+    { name:"Robotics Club",                    shortCode:"RC" },
+    { name:"Cultural Club",                    shortCode:"CULT" },
+    { name:"Sports Committee",                 shortCode:"SPORT" },
+    { name:"Literary Club",                    shortCode:"LIT" },
+    { name:"Photography Club",                 shortCode:"PHOTO" },
+    { name:"Entrepreneurship Cell",            shortCode:"E-CELL" },
+    { name:"NSS Unit",                         shortCode:"NSS" },
+    { name:"NCC Wing",                         shortCode:"NCC" },
+    { name:"Department of CSE",                shortCode:"CSE" },
+    { name:"Department of IT",                 shortCode:"IT" },
+    { name:"Department of ECE",                shortCode:"ECE" },
+    { name:"Department of Mechanical",         shortCode:"MECH" },
+    { name:"Department of Civil",              shortCode:"CIVIL" },
+    { name:"Other",                            shortCode:"OTHER" },
+  ];
+  for (const c of defaultClubs) {
+    if (!await Club.findOne({ name: c.name })) await Club.create(c);
+  }
+  console.log("🌱  Default clubs seeded");
 });
 
-/* ── Helper ─────────────────────────────────────── */
-const wrap = fn => (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next);
-const delFile = p => { if (p) fs.unlink(path.join(__dirname, p), () => {}); };
+const wrap   = fn => (req,res,next) => Promise.resolve(fn(req,res,next)).catch(next);
+const delFile= p  => { if(p) fs.unlink(path.join(__dirname,p),()=>{}); };
 
 /* ══════════════════════════════════════════════════
-   AUTH ROUTES
+   AUTH
 ══════════════════════════════════════════════════ */
-
-/* POST /api/auth/admin-login */
-app.post("/api/auth/admin-login", wrap(async (req, res) => {
-  const { username, password } = req.body;
-  const admin = await Admin.findOne({ username: username?.trim() });
-  if (!admin || admin.password !== password)
-    return res.status(401).json({ message: "Invalid admin credentials." });
-  res.json({ success: true, role: "admin", user: { id: admin._id, name: admin.name, username: admin.username } });
+app.post("/api/auth/admin-login", wrap(async(req,res)=>{
+  const {username,password}=req.body;
+  const admin=await Admin.findOne({username:username?.trim()});
+  if(!admin||admin.password!==password) return res.status(401).json({message:"Invalid admin credentials."});
+  res.json({success:true,role:"admin",user:{id:admin._id,name:admin.name,username:admin.username}});
 }));
 
-/* POST /api/auth/faculty-login */
-app.post("/api/auth/faculty-login", wrap(async (req, res) => {
-  const { username, password } = req.body;
-  const faculty = await Faculty.findOne({ username: username?.trim(), isActive: true });
-  if (!faculty || faculty.password !== password)
-    return res.status(401).json({ message: "Invalid faculty credentials." });
-  res.json({ success: true, role: "faculty", user: { id: faculty._id, name: faculty.name, username: faculty.username, department: faculty.department } });
-}));
-
-/* POST /api/auth/student-login */
-app.post("/api/auth/student-login", wrap(async (req, res) => {
-  const { register_number, password } = req.body;
-  const student = await Student.findOne({ register_number: register_number?.trim().toUpperCase(), isActive: true });
-  if (!student || student.password !== password)
-    return res.status(401).json({ message: "Invalid register number or password." });
-  res.json({ success: true, role: "student", user: { id: student._id, name: student.name, register_number: student.register_number, department: student.department, year: student.year } });
+app.post("/api/auth/faculty-login", wrap(async(req,res)=>{
+  const {username,password}=req.body;
+  const f=await Faculty.findOne({username:username?.trim(),isActive:true});
+  if(!f||f.password!==password) return res.status(401).json({message:"Invalid faculty credentials."});
+  res.json({success:true,role:"faculty",user:{id:f._id,name:f.name,username:f.username,department:f.department}});
 }));
 
 /* ══════════════════════════════════════════════════
-   PUBLIC EVENT ROUTES
+   PUBLIC ROUTES (no auth required)
 ══════════════════════════════════════════════════ */
 
-/* GET /api/events — approved events (students + faculty) */
-app.get("/api/events", wrap(async (_req, res) => {
-  const events = await Event.find({ status: "approved" }).sort({ event_date: 1 }).lean();
+/* Approved events — public */
+app.get("/api/events", wrap(async(_req,res)=>{
+  const events=await Event.find({status:"approved"}).sort({event_date:1}).lean();
   res.json(events);
+}));
+
+/* Upcoming events for ticker — public */
+app.get("/api/events/upcoming", wrap(async(_req,res)=>{
+  const now=new Date();
+  const events=await Event.find({status:"approved",event_date:{$gte:now}}).sort({event_date:1}).limit(10).lean();
+  res.json(events);
+}));
+
+/* All clubs — public */
+app.get("/api/clubs", wrap(async(_req,res)=>{
+  const clubs=await Club.find({isActive:true}).sort({name:1}).lean();
+  res.json(clubs);
 }));
 
 /* ══════════════════════════════════════════════════
    FACULTY ROUTES
 ══════════════════════════════════════════════════ */
-
-/* POST /api/faculty/events — create event (faculty only) */
-app.post("/api/faculty/events", upload.single("brochure"), wrap(async (req, res) => {
-  const { title, category, organizer, event_date, location, description, registration_link, faculty_id, faculty_name } = req.body;
-  const brochure_path = req.file ? `/uploads/brochures/${req.file.filename}` : null;
-
-  const event = await Event.create({
-    title, category, organizer,
-    event_date: new Date(event_date),
-    location, description, registration_link,
-    brochure_path,
-    created_by:    faculty_name || "Faculty",
-    created_by_id: faculty_id  || null,
-    status: "pending",
+app.post("/api/faculty/events", upload.single("brochure"), wrap(async(req,res)=>{
+  const {title,category,club,organizer,event_date,location,description,registration_link,faculty_id,faculty_name}=req.body;
+  const brochure_path=req.file?`/uploads/brochures/${req.file.filename}`:null;
+  const event=await Event.create({
+    title,category,club,organizer,
+    event_date:new Date(event_date),
+    location,description,registration_link,brochure_path,
+    created_by:faculty_name||"Faculty",
+    created_by_id:faculty_id||null,
+    status:"pending",
   });
-  res.status(201).json({ message: "Event submitted for admin review.", event });
+  res.status(201).json({message:"Event submitted for review.",event});
 }));
 
-/* GET /api/faculty/events/:facultyId — events by this faculty */
-app.get("/api/faculty/events/:facultyId", wrap(async (req, res) => {
-  const events = await Event.find({ created_by_id: req.params.facultyId }).sort({ createdAt: -1 }).lean();
+app.get("/api/faculty/events/:facultyId", wrap(async(req,res)=>{
+  const events=await Event.find({created_by_id:req.params.facultyId}).sort({createdAt:-1}).lean();
   res.json(events);
 }));
 
 /* ══════════════════════════════════════════════════
-   ADMIN — EVENT MANAGEMENT
+   ADMIN — EVENTS
 ══════════════════════════════════════════════════ */
-
-app.get("/api/admin/events", wrap(async (req, res) => {
-  const filter = req.query.status ? { status: req.query.status } : {};
-  const events = await Event.find(filter).sort({ createdAt: -1 }).lean();
-  res.json(events);
+app.get("/api/admin/events", wrap(async(req,res)=>{
+  const filter=req.query.status?{status:req.query.status}:{};
+  res.json(await Event.find(filter).sort({createdAt:-1}).lean());
 }));
 
-app.patch("/api/admin/events/:id/status", wrap(async (req, res) => {
-  const { status } = req.body;
-  if (!["approved","rejected"].includes(status))
-    return res.status(400).json({ message: "Status must be approved or rejected." });
-  const event = await Event.findByIdAndUpdate(req.params.id, { status }, { new: true });
-  if (!event) return res.status(404).json({ message: "Event not found." });
-  res.json({ message: `Event ${status}.`, event });
+app.patch("/api/admin/events/:id/status", wrap(async(req,res)=>{
+  const {status}=req.body;
+  if(!["approved","rejected"].includes(status)) return res.status(400).json({message:"Invalid status."});
+  const event=await Event.findByIdAndUpdate(req.params.id,{status},{new:true});
+  if(!event) return res.status(404).json({message:"Not found."});
+  res.json({message:`Event ${status}.`,event});
 }));
 
-app.delete("/api/admin/events/:id", wrap(async (req, res) => {
-  const event = await Event.findByIdAndDelete(req.params.id);
-  if (!event) return res.status(404).json({ message: "Event not found." });
+app.delete("/api/admin/events/:id", wrap(async(req,res)=>{
+  const event=await Event.findByIdAndDelete(req.params.id);
+  if(!event) return res.status(404).json({message:"Not found."});
   delFile(event.brochure_path);
-  res.json({ message: "Event deleted." });
+  res.json({message:"Deleted."});
 }));
 
 /* ══════════════════════════════════════════════════
-   ADMIN — FACULTY MANAGEMENT
+   ADMIN — FACULTY
 ══════════════════════════════════════════════════ */
-
-/* GET all faculty */
-app.get("/api/admin/faculty", wrap(async (_req, res) => {
-  const list = await Faculty.find().sort({ createdAt: -1 }).lean();
-  res.json(list);
+app.get("/api/admin/faculty", wrap(async(_req,res)=>{
+  res.json(await Faculty.find().sort({createdAt:-1}).lean());
 }));
 
-/* POST add faculty */
-app.post("/api/admin/faculty", wrap(async (req, res) => {
-  const { username, password, name, department } = req.body;
-  if (!username || !password || !name)
-    return res.status(400).json({ message: "Username, password and name are required." });
-
-  const exists = await Faculty.findOne({ username: username.trim() });
-  if (exists) return res.status(409).json({ message: "Username already exists." });
-
-  const faculty = await Faculty.create({ username: username.trim(), password, name: name.trim(), department: department?.trim() || "" });
-  res.status(201).json({ message: "Faculty added.", faculty });
+app.post("/api/admin/faculty", wrap(async(req,res)=>{
+  const {username,password,name,department}=req.body;
+  if(!username||!password||!name) return res.status(400).json({message:"Username, password and name required."});
+  if(await Faculty.findOne({username:username.trim()})) return res.status(409).json({message:"Username already exists."});
+  const f=await Faculty.create({username:username.trim(),password,name:name.trim(),department:department?.trim()||""});
+  res.status(201).json({message:"Faculty added.",faculty:f});
 }));
 
-/* PATCH update faculty */
-app.patch("/api/admin/faculty/:id", wrap(async (req, res) => {
-  const { name, password, department, isActive } = req.body;
-  const update = {};
-  if (name)       update.name       = name.trim();
-  if (password)   update.password   = password;
-  if (department !== undefined) update.department = department.trim();
-  if (isActive   !== undefined) update.isActive   = isActive;
-
-  const faculty = await Faculty.findByIdAndUpdate(req.params.id, update, { new: true });
-  if (!faculty) return res.status(404).json({ message: "Faculty not found." });
-  res.json({ message: "Faculty updated.", faculty });
+app.patch("/api/admin/faculty/:id", wrap(async(req,res)=>{
+  const {name,password,department,isActive}=req.body;
+  const u={};
+  if(name!==undefined)       u.name=name.trim();
+  if(password)               u.password=password;
+  if(department!==undefined) u.department=department.trim();
+  if(isActive!==undefined)   u.isActive=isActive;
+  const f=await Faculty.findByIdAndUpdate(req.params.id,u,{new:true});
+  if(!f) return res.status(404).json({message:"Not found."});
+  res.json({message:"Updated.",faculty:f});
 }));
 
-/* DELETE faculty */
-app.delete("/api/admin/faculty/:id", wrap(async (req, res) => {
-  const faculty = await Faculty.findByIdAndDelete(req.params.id);
-  if (!faculty) return res.status(404).json({ message: "Faculty not found." });
-  res.json({ message: "Faculty removed." });
+app.delete("/api/admin/faculty/:id", wrap(async(req,res)=>{
+  if(!await Faculty.findByIdAndDelete(req.params.id)) return res.status(404).json({message:"Not found."});
+  res.json({message:"Faculty removed."});
 }));
 
 /* ══════════════════════════════════════════════════
-   ADMIN — STUDENT MANAGEMENT
+   ADMIN — CLUBS
 ══════════════════════════════════════════════════ */
-
-/* GET all students */
-app.get("/api/admin/students", wrap(async (_req, res) => {
-  const list = await Student.find().sort({ createdAt: -1 }).lean();
-  res.json(list);
+app.get("/api/admin/clubs", wrap(async(_req,res)=>{
+  res.json(await Club.find().sort({name:1}).lean());
 }));
 
-/* POST add student */
-app.post("/api/admin/students", wrap(async (req, res) => {
-  const { register_number, password, name, department, year } = req.body;
-  if (!register_number || !password || !name)
-    return res.status(400).json({ message: "Register number, password and name are required." });
-
-  const exists = await Student.findOne({ register_number: register_number.trim().toUpperCase() });
-  if (exists) return res.status(409).json({ message: "Register number already exists." });
-
-  const student = await Student.create({
-    register_number: register_number.trim().toUpperCase(),
-    password, name: name.trim(),
-    department: department?.trim() || "",
-    year: year || "1",
-  });
-  res.status(201).json({ message: "Student added.", student });
+app.post("/api/admin/clubs", wrap(async(req,res)=>{
+  const {name,shortCode}=req.body;
+  if(!name?.trim()) return res.status(400).json({message:"Club name required."});
+  if(await Club.findOne({name:name.trim()})) return res.status(409).json({message:"Club already exists."});
+  const c=await Club.create({name:name.trim(),shortCode:shortCode?.trim()||""});
+  res.status(201).json({message:"Club added.",club:c});
 }));
 
-/* PATCH update student */
-app.patch("/api/admin/students/:id", wrap(async (req, res) => {
-  const { name, password, department, year, isActive } = req.body;
-  const update = {};
-  if (name)     update.name     = name.trim();
-  if (password) update.password = password;
-  if (department !== undefined) update.department = department.trim();
-  if (year)     update.year     = year;
-  if (isActive !== undefined)   update.isActive   = isActive;
-
-  const student = await Student.findByIdAndUpdate(req.params.id, update, { new: true });
-  if (!student) return res.status(404).json({ message: "Student not found." });
-  res.json({ message: "Student updated.", student });
+app.patch("/api/admin/clubs/:id", wrap(async(req,res)=>{
+  const {name,shortCode,isActive}=req.body;
+  const u={};
+  if(name!==undefined)      u.name=name.trim();
+  if(shortCode!==undefined) u.shortCode=shortCode.trim();
+  if(isActive!==undefined)  u.isActive=isActive;
+  const c=await Club.findByIdAndUpdate(req.params.id,u,{new:true});
+  if(!c) return res.status(404).json({message:"Not found."});
+  res.json({message:"Updated.",club:c});
 }));
 
-/* DELETE student */
-app.delete("/api/admin/students/:id", wrap(async (req, res) => {
-  const student = await Student.findByIdAndDelete(req.params.id);
-  if (!student) return res.status(404).json({ message: "Student not found." });
-  res.json({ message: "Student removed." });
+app.delete("/api/admin/clubs/:id", wrap(async(req,res)=>{
+  if(!await Club.findByIdAndDelete(req.params.id)) return res.status(404).json({message:"Not found."});
+  res.json({message:"Club removed."});
 }));
 
-/* ── Cron: delete events 5 days after event_date ── */
-cron.schedule("0 0 * * *", async () => {
-  const cutoff = new Date(); cutoff.setDate(cutoff.getDate() - 5);
-  const stale = await Event.find({ event_date: { $lt: cutoff } });
-  stale.forEach(ev => delFile(ev.brochure_path));
-  const r = await Event.deleteMany({ event_date: { $lt: cutoff } });
+/* ── Cron cleanup ───────────────────────────────── */
+cron.schedule("0 0 * * *", async()=>{
+  const cut=new Date(); cut.setDate(cut.getDate()-5);
+  const stale=await Event.find({event_date:{$lt:cut}});
+  stale.forEach(e=>delFile(e.brochure_path));
+  const r=await Event.deleteMany({event_date:{$lt:cut}});
   console.log(`🧹  Cleanup: removed ${r.deletedCount} stale event(s)`);
 });
 
 /* ── Error handler ──────────────────────────────── */
-app.use((err, _req, res, _next) => {
+app.use((err,_req,res,_next)=>{
   console.error(err);
-  res.status(500).json({ message: err.message || "Internal server error." });
+  res.status(500).json({message:err.message||"Internal server error."});
 });
 
-app.listen(PORT, () => console.log(`🚀  SIST-EVENTS running on http://localhost:${PORT}`));
+app.listen(PORT,()=>console.log(`🚀  SDC Events Hub running → http://localhost:${PORT}`));
