@@ -13,8 +13,8 @@ const fs       = require("fs");
 const cron     = require("node-cron");
 
 const app   = express();
-const PORT  = process.env.PORT     || 5000;
-const MONGO = process.env.MONGO_URI|| "mongodb://localhost:27017/sdc-events";
+const PORT  = process.env.PORT  || 5000;
+const MONGO = process.env.MONGO_URI || "mongodb+srv://midhun:midhun123@sistevents.ystmyb0.mongodb.net/?appName=SistEvents";
 
 /* ── Middleware ─────────────────────────────────── */
 app.use(cors({ origin: process.env.CLIENT_URL || "http://localhost:3000" }));
