@@ -29,18 +29,20 @@ if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
 /* ── Multer ─────────────────────────────────────── */
 const storage = multer.diskStorage({
   destination: (_r, _f, cb) => cb(null, uploadDir),
-  filename:    (_r, f,  cb) => cb(null, `${Date.now()}-${Math.round(Math.random()*1e9)}${path.extname(f.originalname)}`),
+  filename:    (_r, file, cb) => cb(null, `${Date.now()}-${Math.round(Math.random()*1e9)}${path.extname(file.originalname)}`),
 });
 const upload = multer({
   storage,
-  fileFilter: (_r, f, cb) => /jpeg|jpg|png|gif|webp/.test(f.mimetype) ? cb(null,true) : cb(new Error("Images only")),
+  fileFilter: (_r, file, cb) => {
+    /jpeg|jpg|png|gif|webp/.test(file.mimetype) ? cb(null, true) : cb(new Error("Images only"));
+  },
   limits: { fileSize: 5 * 1024 * 1024 },
 });
 
-/* ── MongoDB ────────────────────────────────────── */
+/* ── DB ─────────────────────────────────────────── */
 mongoose.connect(MONGO)
   .then(() => console.log("✅  MongoDB connected"))
-  .catch(err => console.error("❌  MongoDB:", err));
+  .catch(err => console.error("❌  MongoDB error:", err));
 
 /* ══════════════════════════════════════════════════
    SCHEMAS
