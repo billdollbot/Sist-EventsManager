@@ -40,8 +40,7 @@ export default function HostEvent({ onClose, session, onSuccess }) {
   /* Fetch clubs on mount */
   useEffect(() => {
     axios.get(`${API}/api/clubs`)
-      .then(r => setClubs(r.data))
-      .catch(() => {
+      .then(() => {
         /* Fallback static list */
         setClubs([
   { _id: "1", name: "AI WIZARDS CLUB" },
@@ -113,7 +112,8 @@ export default function HostEvent({ onClose, session, onSuccess }) {
   { _id: "67", name: "Public Speaking Club" },
   { _id: "68", name: "Podcast Club" }
 ]);
-      });
+      })
+      .catch(console.log("there is a error while fetching the list club"));
   }, []);
 
   const validate = () => {

@@ -2,25 +2,25 @@
  * SDC Club Events Hub — App.jsx v4
  * Students: public (no login needed)
  * Faculty/Admin: login required
+ * Removed: FeaturedScroll horizontal section
  */
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback } from "react";
 import axios from "axios";
 import "./App.css";
 import {
   Search, X, Zap, LogOut, BookOpen, Shield,
-  CalendarDays, MapPin, ChevronRight, RefreshCw,
+  CalendarDays, MapPin, RefreshCw,
 } from "lucide-react";
 
-import LoginPage        from "./pages/LoginPage";
-import AdminConsole     from "./pages/AdminConsole";
-import FacultyDashboard from "./pages/FacultyDashboard";
-import EventCard        from "./components/EventCard";
-import ToastStack       from "./components/Toast";
+import LoginPage         from "./pages/LoginPage";
+import AdminConsole      from "./pages/AdminConsole";
+import FacultyDashboard  from "./pages/FacultyDashboard";
+import EventCard         from "./components/EventCard";
+import ToastStack        from "./components/Toast";
 
-const API = import.meta.env.VITE_API_URL || "http://localhost:5000";
+const API        = import.meta.env.VITE_API_URL || "http://localhost:5000";
 const CATEGORIES = ["All","Technical","Cultural","Workshop","Sports","Seminar","Hackathon","Other"];
-const EMOJI = { Technical:"⚙️",Cultural:"🎭",Workshop:"🛠️",Sports:"🏆",Seminar:"📚",Hackathon:"💻",Other:"✨" };
-const GRAD  = { Technical:"grad-tech",Cultural:"grad-culture",Workshop:"grad-workshop",Sports:"grad-sports",Seminar:"grad-seminar",Hackathon:"grad-hackathon",Other:"grad-other" };
+const EMOJI      = { Technical:"⚙️",Cultural:"🎭",Workshop:"🛠️",Sports:"🏆",Seminar:"📚",Hackathon:"💻",Other:"✨" };
 
 const fmtDateShort = d => new Date(d).toLocaleDateString("en-IN",{ day:"numeric", month:"short" });
 const fmtTime      = d => new Date(d).toLocaleTimeString("en-IN",{ hour:"2-digit", minute:"2-digit", hour12:true });
@@ -39,8 +39,7 @@ export function useToast() {
 /* ── Announcement Ticker ────────────────────────── */
 function Ticker({ events }) {
   if (!events.length) return null;
-  // Duplicate for seamless loop
-  const items = [...events, ...events];
+  const items = [...events, ...events]; // duplicate for seamless loop
   return (
     <div className="ticker-bar" role="marquee" aria-label="Upcoming events ticker">
       <div className="ticker-label">
@@ -59,60 +58,6 @@ function Ticker({ events }) {
             </span>
           ))}
         </div>
-      </div>
-    </div>
-  );
-}
-
-/* ── Featured Horizontal Scroll ─────────────────── */
-function FeaturedScroll({ events, loading }) {
-  const trackRef = useRef(null);
-
-  return (
-    <div className="hscroll-section">
-      <div className="hscroll-header">
-        <span className="hscroll-title">🔥 Featured Events</span>
-        <span className="text-xs text-muted">{loading ? "Loading…" : `${events.length} upcoming`}</span>
-      </div>
-      <div className="hscroll-track" ref={trackRef}>
-        {loading ? (
-          [1,2,3,4].map(i => (
-            <div key={i} className="feat-card-skeleton">
-              <div className="skeleton" style={{ height:82 }} />
-              <div style={{ padding:"10px 12px", display:"flex", flexDirection:"column", gap:7 }}>
-                <div className="skeleton" style={{ height:12, width:"40%" }} />
-                <div className="skeleton" style={{ height:15, width:"90%" }} />
-                <div className="skeleton" style={{ height:11, width:"60%" }} />
-              </div>
-            </div>
-          ))
-        ) : events.length === 0 ? (
-          <div style={{ padding:"20px 4px", color:"var(--text-muted)", fontSize:"0.8rem", fontStyle:"italic" }}>
-            No upcoming events yet — check back soon!
-          </div>
-        ) : (
-          events.map(ev => (
-            <div key={ev._id} className="feat-card">
-              <div className={`feat-card-img ${GRAD[ev.category] || "grad-other"}`}>
-                {ev.brochure_path
-                  ? <img src={`${API}${ev.brochure_path}`} alt={ev.title} style={{ width:"100%",height:"100%",objectFit:"cover" }} />
-                  : <span style={{ position:"relative", zIndex:1 }}>{EMOJI[ev.category] || "📅"}</span>
-                }
-              </div>
-              <div className="feat-card-body">
-                <div style={{ display:"flex", gap:5, marginBottom:5 }}>
-                  <span className={`badge badge-${ev.category?.toLowerCase()}`}
-                    style={{ fontSize:"0.58rem", padding:"2px 6px" }}>{ev.category}</span>
-                </div>
-                <p className="feat-card-title">{ev.title}</p>
-                <div className="feat-card-meta">
-                  <span><CalendarDays size={10}/> {fmtDateShort(ev.event_date)} · {fmtTime(ev.event_date)}</span>
-                  <span><MapPin size={10}/> {ev.location}</span>
-                </div>
-              </div>
-            </div>
-          ))
-        )}
       </div>
     </div>
   );
@@ -156,9 +101,14 @@ function Navbar({ session, onLogout, onLoginClick }) {
               <div className="nav-user-pill hide-xs">
                 {session.role === "faculty" ? <BookOpen size={12}/> : <Shield size={12}/>}
                 <span>{session.name}</span>
-                <span style={{ fontSize:"0.62rem",opacity:0.7,textTransform:"uppercase",letterSpacing:"0.04em" }}>· {session.role}</span>
+                <span style={{ fontSize:"0.62rem",opacity:0.7,textTransform:"uppercase",letterSpacing:"0.04em" }}>
+                  · {session.role}
+                </span>
               </div>
-              <button className="btn btn-ghost btn-icon btn-sm tap" onClick={onLogout} title="Sign out">
+              <button
+                className="btn btn-ghost btn-icon btn-sm tap"
+                onClick={onLogout}
+                title="Sign out">
                 <LogOut size={16}/>
               </button>
             </>
@@ -211,7 +161,8 @@ function PublicFeed({ showToast }) {
 
   return (
     <div className="page">
-      {/* Ticker */}
+
+      {/* Ticker — scrolling announcement bar */}
       <Ticker events={upcoming} />
 
       {/* Hero */}
@@ -232,18 +183,23 @@ function PublicFeed({ showToast }) {
         </div>
       </section>
 
-      {/* Featured horizontal scroll */}
-      <FeaturedScroll events={upcoming} loading={loading} />
-
+      {/* Main content */}
       <main className="container" style={{ paddingBottom:48 }}>
+
         {/* Search */}
-        <div className="search-wrapper" style={{ marginTop:8 }}>
+        <div className="search-wrapper">
           <span className="search-icon-wrap"><Search size={17}/></span>
-          <input className="search-input" placeholder="Search events, clubs, venues…"
-            value={search} onChange={e => setSearch(e.target.value)} />
+          <input
+            className="search-input"
+            placeholder="Search events, clubs, venues…"
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+          />
           {search && (
-            <button className="btn btn-ghost btn-icon search-clear tap"
-              style={{ minHeight:36, width:36 }} onClick={() => setSearch("")}>
+            <button
+              className="btn btn-ghost btn-icon search-clear tap"
+              style={{ minHeight:36, width:36 }}
+              onClick={() => setSearch("")}>
               <X size={15}/>
             </button>
           )}
@@ -252,7 +208,8 @@ function PublicFeed({ showToast }) {
         {/* Category chips */}
         <div className="filter-bar">
           {CATEGORIES.map(cat => (
-            <button key={cat}
+            <button
+              key={cat}
               className={`chip tap ${category === cat ? "active" : ""}`}
               onClick={() => setCategory(cat)}>
               {cat !== "All" && `${EMOJI[cat]} `}{cat}
@@ -274,12 +231,18 @@ function PublicFeed({ showToast }) {
 
         {/* Grid */}
         {loading ? (
-          <div className="events-grid">{[1,2,3,4].map(i => <SkeletonCard key={i}/>)}</div>
+          <div className="events-grid">
+            {[1,2,3,4].map(i => <SkeletonCard key={i}/>)}
+          </div>
         ) : filtered.length === 0 ? (
           <div className="empty-state">
             <div className="empty-icon">{search ? "🔍" : "📅"}</div>
-            <p className="empty-title">{search ? "No results found" : "No events yet"}</p>
-            <p className="empty-sub">{search ? "Try a different search term" : "Events will appear here once approved."}</p>
+            <p className="empty-title">
+              {search ? "No results found" : "No events yet"}
+            </p>
+            <p className="empty-sub">
+              {search ? "Try a different search term" : "Events will appear here once approved."}
+            </p>
           </div>
         ) : (
           <div className="events-grid">
@@ -295,7 +258,9 @@ function PublicFeed({ showToast }) {
 function LoginModal({ onClose, onLogin }) {
   return (
     <div className="overlay" onClick={onClose}>
-      <div style={{ width:"100%", maxWidth:440, zIndex:201 }} onClick={e => e.stopPropagation()}>
+      <div
+        style={{ width:"100%", maxWidth:440, zIndex:201 }}
+        onClick={e => e.stopPropagation()}>
         <LoginPage onLogin={onLogin} onClose={onClose} />
       </div>
     </div>
@@ -327,13 +292,17 @@ export default function App() {
 
   return (
     <>
+      {/* Background */}
       <div className="bg-scene">
-        <div className="bg-orb bg-orb-1"/><div className="bg-orb bg-orb-2"/><div className="bg-orb bg-orb-3"/>
+        <div className="bg-orb bg-orb-1"/>
+        <div className="bg-orb bg-orb-2"/>
+        <div className="bg-orb bg-orb-3"/>
       </div>
 
+      {/* Toast notifications */}
       <ToastStack toasts={toasts}/>
 
-      {/* Login modal (only for faculty/admin) */}
+      {/* Faculty / Admin login modal */}
       {showLogin && (
         <LoginModal
           onClose={() => setShowLogin(false)}
@@ -341,16 +310,15 @@ export default function App() {
         />
       )}
 
-      {/* Always show navbar */}
+      {/* Top navbar — always visible */}
       <Navbar
         session={session}
         onLogout={handleLogout}
         onLoginClick={() => setShowLogin(true)}
       />
 
-      {/* Route based on session role */}
+      {/* Route by role */}
       {!session || session.role === "student" ? (
-        /* Public feed — no login needed */
         <PublicFeed showToast={showToast}/>
       ) : session.role === "admin" ? (
         <AdminConsole session={session}/>
@@ -359,7 +327,10 @@ export default function App() {
       )}
 
       <footer className="footer">
-        <p>SDC <strong style={{ color:"var(--amber-500)" }}>Club Events Hub</strong> · Sathyabama Institute of Science and Technology</p>
+        <p>
+          SDC <strong style={{ color:"var(--amber-500)" }}>Club Events Hub</strong>
+          {" "}· Sathyabama Institute of Science and Technology
+        </p>
         <p style={{ marginTop:3, fontSize:"0.7rem" }}>All campus events, one place ✦</p>
       </footer>
     </>
