@@ -20,7 +20,7 @@ const MONGO = process.env.MONGO_URI || "mongodb+srv://midhun:midhun123@sistevent
 /* ── Middleware ─────────────────────────────────── */
 const allowedOrigins = [
   "http://localhost:3000",
-  "https://sist-events-manager-lc5i.vercel.app",
+  "https://sist-events-manager-iq96.vercel.app",
   process.env.CLIENT_URL
 ].filter(Boolean);
 
