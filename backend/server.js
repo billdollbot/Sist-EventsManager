@@ -18,7 +18,13 @@ const PORT  = process.env.PORT  || 5000;
 const MONGO = process.env.MONGO_URI || "mongodb+srv://midhun:midhun123@sistevents.ystmyb0.mongodb.net/?appName=SistEvents";
 
 /* ── Middleware ─────────────────────────────────── */
-app.use(cors({ origin: process.env.CLIENT_URL || "http://localhost:3000" }));
+const allowedOrigins = [
+  "http://localhost:3000",
+  "https://sist-events-manager-lc5i.vercel.app",
+  process.env.CLIENT_URL
+].filter(Boolean);
+
+app.use(cors({ origin: allowedOrigins }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
