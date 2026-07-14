@@ -12,7 +12,7 @@ node_modules/
 frontend/dist/
 frontend/build/
 backend/dist/
-
+backend/service-account-key.json
 # Uploads and temporary files
 backend/uploads/
 .DS_Store
