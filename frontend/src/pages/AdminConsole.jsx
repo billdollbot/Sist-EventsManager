@@ -459,54 +459,7 @@ export default function AdminConsole({ session }) {
           </div>
         )}
 
-        {/* ── STUDENTS TAB ──────────────────────── */}
-        {tab === "students" && (
-          <div>
-            <div style={{ display: "flex", gap: 10, marginBottom: 16, flexWrap: "wrap" }}>
-              <input className="search-input" style={{ flex: 1, minWidth: 200 }}
-                placeholder="Search name or register number…"
-                value={stuSearch} onChange={e => setStuSearch(e.target.value)} />
-              <button className="btn btn-primary tap" onClick={() => setShowAddStu(true)}>
-                <UserPlus size={16} /> Add Student
-              </button>
-            </div>
 
-            {stuLoading ? (
-              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>{[1, 2, 3].map(i => <div key={i} className="skeleton" style={{ height: 72, borderRadius: "var(--radius-md)" }} />)}</div>
-            ) : filteredStu.length === 0 ? (
-              <div className="empty-state"><div className="empty-icon">🎓</div><p className="empty-title">{stuSearch ? "No results" : "No students added yet"}</p><p className="empty-sub">Use the button above to add students.</p></div>
-            ) : (
-              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                {filteredStu.map(s => (
-                  <div key={s._id} style={{ background: "var(--navy-800)", border: "1px solid var(--border-subtle)", borderRadius: "var(--radius-md)", padding: "12px 16px", display: "grid", gridTemplateColumns: "1fr auto", gap: 12, alignItems: "center" }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
-                      <div style={{ width: 36, height: 36, borderRadius: "50%", background: "var(--teal-glow)", border: "1px solid rgba(45,212,191,0.25)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "0.7rem", fontWeight: 700, color: "var(--teal-400)", flexShrink: 0 }}>
-                        {s.name.slice(0, 2).toUpperCase()}
-                      </div>
-                      <div style={{ minWidth: 0 }}>
-                        <p className="fw-700 truncate" style={{ fontSize: "0.88rem" }}>{s.name}</p>
-                        <p className="text-xs text-muted">{s.register_number}{s.department && ` · ${s.department}`} · Year {s.year}</p>
-                      </div>
-                    </div>
-                    <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-                      <span style={{ fontSize: "0.68rem", fontWeight: 700, padding: "3px 8px", borderRadius: 99, background: s.isActive ? "rgba(52,211,153,0.12)" : "rgba(148,163,184,0.1)", color: s.isActive ? "#34d399" : "#94a3b8", border: `1px solid ${s.isActive ? "rgba(52,211,153,0.25)" : "rgba(148,163,184,0.15)"}` }}>
-                        {s.isActive ? "Active" : "Inactive"}
-                      </span>
-                      <button className="action-btn tap"
-                        style={{ borderColor: "var(--border-light)", color: s.isActive ? "var(--teal-400)" : "var(--text-muted)" }}
-                        onClick={() => toggleStudent(s._id, s.isActive)}>
-                        {s.isActive ? <ToggleRight size={16} /> : <ToggleLeft size={16} />}
-                      </button>
-                      <button className="action-btn action-delete tap" onClick={() => setDeleteStu(s)} title="Remove">
-                        <Trash2 size={14} />
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
       </div>
     </div>
   );
