@@ -149,7 +149,13 @@ function PublicFeed({ showToast }) {
 
   useEffect(() => { fetchAll(); }, [fetchAll]);
 
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
   const filtered = events.filter(e => {
+    const isUpcoming = new Date(e.event_date) >= today;
+    if (!isUpcoming) return false;
+
     const mc = category === "All" || e.category === category;
     const q = search.toLowerCase();
     return mc && (!q

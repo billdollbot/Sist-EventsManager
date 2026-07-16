@@ -5,7 +5,7 @@
 import { useState, useEffect, useCallback } from "react";
 import axios from "axios";
 import {
-  Shield, Users, GraduationCap, CalendarDays, Plus, Trash2,
+  Shield, Users, CalendarDays, Plus, Trash2,
   CheckCircle, XCircle, Clock, Eye, X, RefreshCw,
   UserPlus, Edit2, ToggleLeft, ToggleRight, ChevronDown,
 } from "lucide-react";
@@ -204,12 +204,6 @@ export default function AdminConsole({ session }) {
   const [showAddFac, setShowAddFac] = useState(false);
   const [deleteFac, setDeleteFac] = useState(null);
 
-  /* students */
-  const [students, setStudents] = useState([]);
-  const [stuLoading, setStuLoading] = useState(false);
-  const [showAddStu, setShowAddStu] = useState(false);
-  const [deleteStu, setDeleteStu] = useState(null);
-  const [stuSearch, setStuSearch] = useState("");
   const [facSearch, setFacSearch] = useState("");
 
   const { toasts, show } = useToast();
@@ -229,16 +223,8 @@ export default function AdminConsole({ session }) {
     finally { setFacLoading(false); }
   }, []);
 
-  const fetchStudents = useCallback(async () => {
-    setStuLoading(true);
-    try { const r = await axios.get(`${API}/api/admin/students`); setStudents(r.data); }
-    catch { show("Failed to load students", "error"); }
-    finally { setStuLoading(false); }
-  }, []);
-
   useEffect(() => { fetchEvents(evFilter); }, [evFilter]);
   useEffect(() => { if (tab === "faculty") fetchFaculty(); }, [tab]);
-  useEffect(() => { if (tab === "students") fetchStudents(); }, [tab]);
 
   /* ── Event actions ────────────────────────────── */
   const updateEventStatus = async (id, status) => {
@@ -275,35 +261,14 @@ export default function AdminConsole({ session }) {
     catch { show("Delete failed", "error"); }
   };
 
-  /* ── Student actions ──────────────────────────── */
-  const addStudent = async form => {
-    await axios.post(`${API}/api/admin/students`, {
-      register_number: form.register_number.trim().toUpperCase(),
-      password: form.password, name: form.name.trim(),
-      department: form.department, year: form.year,
-    });
-    show("Student added! 🎉", "success"); fetchStudents();
-  };
-
-  const toggleStudent = async (id, current) => {
-    try { await axios.patch(`${API}/api/admin/students/${id}`, { isActive: !current }); fetchStudents(); }
-    catch { show("Failed", "error"); }
-  };
-
-  const deleteStudent = async id => {
-    try { await axios.delete(`${API}/api/admin/students/${id}`); show("Student removed.", "info"); fetchStudents(); setDeleteStu(null); }
-    catch { show("Delete failed", "error"); }
-  };
 
   /* ── Derived ──────────────────────────────────── */
   const pendingCount = events.filter(e => e.status === "pending").length;
   const filteredFac = faculty.filter(f => f.name.toLowerCase().includes(facSearch.toLowerCase()) || f.username.toLowerCase().includes(facSearch.toLowerCase()));
-  const filteredStu = students.filter(s => s.name.toLowerCase().includes(stuSearch.toLowerCase()) || s.register_number.toLowerCase().includes(stuSearch.toLowerCase()));
 
   const TABS = [
     { key: "events", label: "Events", icon: CalendarDays, count: pendingCount },
     { key: "faculty", label: "Faculty", icon: Users, count: faculty.length },
-    { key: "students", label: "Students", icon: GraduationCap, count: students.length },
   ];
 
   const BADGE_MAP = { Technical: "badge-technical", Cultural: "badge-cultural", Workshop: "badge-workshop", Sports: "badge-sports", Seminar: "badge-seminar", Hackathon: "badge-hackathon", Other: "badge-other" };
@@ -322,9 +287,7 @@ export default function AdminConsole({ session }) {
 
       {/* Modals */}
       {showAddFac && <AddModal type="faculty" onClose={() => setShowAddFac(false)} onSave={addFaculty} />}
-      {showAddStu && <AddModal type="student" onClose={() => setShowAddStu(false)} onSave={addStudent} />}
       {deleteFac && <ConfirmModal msg={`Remove faculty "${deleteFac.name}"? Their events will remain.`} onConfirm={() => deleteFaculty(deleteFac._id)} onCancel={() => setDeleteFac(null)} />}
-      {deleteStu && <ConfirmModal msg={`Remove student "${deleteStu.name}" (${deleteStu.register_number})?`} onConfirm={() => deleteStudent(deleteStu._id)} onCancel={() => setDeleteStu(null)} />}
       {detailEvent && <EventDetailModal event={detailEvent} onClose={() => setDetailEvent(null)} onApprove={id => updateEventStatus(id, "approved")} onReject={id => updateEventStatus(id, "rejected")} acting={acting} />}
 
       <div className="container" style={{ paddingTop: 28, paddingBottom: 80 }}>
@@ -342,7 +305,7 @@ export default function AdminConsole({ session }) {
           </div>
           {/* Stats row */}
           <div style={{ display: "flex", gap: 10 }}>
-            {[["Faculty", faculty.length, "var(--amber-400)"], ["Students", students.length, "var(--teal-400)"], ["Pending", pendingCount, "var(--rose-400)"]].map(([l, v, c]) => (
+            {[["Faculty", faculty.length, "var(--amber-400)"], ["Pending", pendingCount, "var(--rose-400)"]].map(([l, v, c]) => (
               <div key={l} style={{ background: "var(--navy-800)", border: "1px solid var(--border-subtle)", borderRadius: "var(--radius-sm)", padding: "8px 14px", textAlign: "center", minWidth: 70 }}>
                 <div style={{ fontFamily: "var(--ff-display)", fontSize: "1.3rem", fontWeight: 800, color: c, lineHeight: 1 }}>{v}</div>
                 <div style={{ fontSize: "0.62rem", color: "var(--text-secondary)", textTransform: "uppercase", letterSpacing: "0.05em", marginTop: 2 }}>{l}</div>
