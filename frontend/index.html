@@ -4,6 +4,22 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <title>SIST-EVENTS</title>
+    <script>
+      // Flash prevention — apply saved theme before React renders
+      (function(){
+        try {
+          var m = localStorage.getItem('sist_mode') || 'dark';
+          var a = localStorage.getItem('sist_accent') || 'emerald';
+          var resolved = m === 'system'
+            ? (window.matchMedia('(prefers-color-scheme:dark)').matches ? 'dark' : 'light')
+            : m;
+          document.documentElement.dataset.theme = resolved;
+          document.documentElement.dataset.accent = a;
+          document.documentElement.style.background = resolved === 'light' ? '#f8fafc' : '#03080f';
+          document.documentElement.style.colorScheme = resolved;
+        } catch(e){}
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>
