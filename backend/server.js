@@ -325,6 +325,16 @@ app.use((err, _req, res, _next) => {
   res.status(500).json({ message: err.message || "Internal server error." });
 });
 
-app.listen(PORT, () => console.log(`🚀  SDC Events Hub running → http://localhost:${PORT}`));
+const server = app.listen(PORT, () =>
+  console.log(`🚀  SDC Events Hub running → http://localhost:${PORT}`)
+);
 
-app.listen(PORT, () => console.log(`🚀  SDC Events Hub running → http://localhost:${PORT}`));
+server.on("error", (err) => {
+  if (err.code === "EADDRINUSE") {
+    console.error(`❌  Port ${PORT} is already in use. Kill other node processes and retry.`);
+    console.error(`    Run: taskkill /F /IM node.exe`);
+    process.exit(1);   // Exit cleanly so nodemon can restart
+  } else {
+    throw err;
+  }
+});
