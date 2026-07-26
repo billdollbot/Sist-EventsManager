@@ -134,6 +134,18 @@ export default function EventCard({ event }) {
                 src={brochureSrc}
                 alt={`${event.title} poster`}
                 loading="lazy"
+                onError={e => {
+                  // Image failed to load (404 or broken) — hide it and show placeholder
+                  e.currentTarget.style.display = "none";
+                  const wrap = e.currentTarget.closest(".card-img-wrap");
+                  if (wrap) {
+                    wrap.style.cursor = "default";
+                    const ph = document.createElement("div");
+                    ph.className = `card-placeholder ${GRAD[event.category] || "grad-other"}`;
+                    ph.textContent = EMOJI[event.category] || "📅";
+                    wrap.appendChild(ph);
+                  }
+                }}
               />
               {/* Zoom hint overlay — appears on hover */}
               <div style={{
