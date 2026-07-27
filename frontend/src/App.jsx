@@ -88,9 +88,9 @@ function Navbar({ session, onLogout, onLoginClick }) {
           <span className="nav-logo-dot" />
           <div className="nav-brand-text">
             <span className="nav-brand-main">
-              SDC<span style={{ color: "var(--amber-500)" }}> Club</span>
+              SDC<span style={{ color: "var(--amber-500)" }}> Events</span>
             </span>
-            <span className="nav-brand-sub">Events Hub</span>
+            <span className="nav-brand-sub">Hub</span>
           </div>
         </div>
 
@@ -177,10 +177,10 @@ function PublicFeed({ showToast }) {
           <Zap size={11} /> Sathyabama Institute of Science &amp; Technology
         </div>
         <h1 className="hero-title animate-in" style={{ animationDelay: "0.08s" }}>
-          SDC Club<br />Events Hub
+          SDC<br />Events Hub
         </h1>
         <p className="hero-sub animate-in" style={{ animationDelay: "0.14s" }}>
-          All campus events — workshops, hackathons, fests and more — in one place.
+          📍Everything happening at <strong>Sathyabama</strong>, in one place
         </p>
         <div className="hero-cta animate-in nav-desktop-only" style={{ animationDelay: "0.18s" }}>
           <button className="btn btn-ghost btn-lg tap" onClick={fetchAll}>
@@ -334,7 +334,7 @@ export default function App() {
 
       <footer className="footer">
         <p>
-          SDC <strong style={{ color: "var(--amber-500)" }}>Club Events Hub</strong>
+          SDC <strong style={{ color: "var(--amber-500)" }}>Events Hub</strong>
           {" "}· Sathyabama Institute of Science and Technology
         </p>
         <p style={{ marginTop: 3, fontSize: "0.7rem" }}>All campus events, one place. Made by Void Technologies</p>
