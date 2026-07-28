@@ -1,6 +1,7 @@
 /**
- * pages/LoginPage.jsx v4
+ * pages/LoginPage.jsx v5
  * Faculty + Admin login only (students have public access)
+ * Updated for light/dark theme compatibility
  */
 import { useState } from "react";
 import axios from "axios";
@@ -9,8 +10,8 @@ import { BookOpen, Shield, Eye, EyeOff, ChevronRight, X } from "lucide-react";
 const API = import.meta.env.VITE_API_URL || "http://localhost:5000";
 
 const ROLES = [
-  { key: "faculty", label: "Faculty", icon: BookOpen, color: "var(--amber-400)", bg: "var(--amber-glow)", border: "var(--amber-ring)" },
-  { key: "admin", label: "Admin", icon: Shield, color: "var(--rose-400)", bg: "var(--rose-glow)", border: "rgba(251,113,133,0.25)" },
+  { key: "faculty", label: "Faculty", icon: BookOpen, color: "var(--accent)", bg: "var(--accent-glow)", border: "var(--accent-ring)" },
+  { key: "admin", label: "Admin", icon: Shield, color: "var(--rose)", bg: "var(--rose-glow)", border: "rgba(251,113,133,0.25)" },
 ];
 
 export default function LoginPage({ onLogin, onClose }) {
@@ -53,9 +54,9 @@ export default function LoginPage({ onLogin, onClose }) {
         {/* Logo */}
         <div style={{ textAlign: "center", marginBottom: 24 }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 7, marginBottom: 6 }}>
-            <span style={{ width: 8, height: 8, borderRadius: "50%", background: "var(--amber-500)", boxShadow: "0 0 10px var(--amber-500)", display: "inline-block" }} />
+            <span className="logo-dot" />
             <span style={{ fontFamily: "var(--ff-display)", fontSize: "1.4rem", fontWeight: 800, letterSpacing: "-0.04em" }}>
-              SDC<span style={{ color: "var(--amber-500)" }}> Events</span>
+              SDC<span style={{ color: "var(--accent)" }}> Events</span>
             </span>
           </div>
           <p style={{ fontSize: "0.72rem", fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--text-muted)" }}>
@@ -92,7 +93,7 @@ export default function LoginPage({ onLogin, onClose }) {
           <div style={{
             display: "flex", alignItems: "center", gap: 8, padding: "10px 13px",
             background: "var(--rose-glow)", border: "1px solid rgba(251,113,133,0.3)",
-            borderRadius: "var(--r-sm)", marginBottom: 16, fontSize: "0.8rem", color: "var(--rose-400)"
+            borderRadius: "var(--r-sm)", marginBottom: 16, fontSize: "0.8rem", color: "var(--rose)"
           }}>
             <X size={13} /> {error}
           </div>
@@ -135,7 +136,7 @@ export default function LoginPage({ onLogin, onClose }) {
             className={`btn btn-primary btn-lg tap w-full ${loading ? "btn-loading" : ""}`}
             style={{
               marginTop: 4,
-              background: `linear-gradient(135deg,${activeRole.key === "admin" ? "#fb7185,#e11d48" : "#fbbf24,#d97706"})`
+              background: `linear-gradient(135deg,${activeRole.key === "admin" ? "var(--rose),#e11d48" : "var(--accent-light),var(--accent-dark)"})`
             }}
             onClick={submit} disabled={loading}>
             {!loading && <>Sign In <ChevronRight size={16} /></>}
@@ -149,10 +150,10 @@ export default function LoginPage({ onLogin, onClose }) {
         {/* Student note */}
         <div style={{
           marginTop: 18, padding: "10px 14px",
-          background: "rgba(45,212,191,0.06)", border: "1px solid rgba(45,212,191,0.15)",
+          background: "var(--teal-glow)", border: "1px solid rgba(45,212,191,0.15)",
           borderRadius: "var(--r-sm)", textAlign: "center"
         }}>
-          <p style={{ fontSize: "0.72rem", color: "var(--teal-400)", fontWeight: 500 }}>
+          <p style={{ fontSize: "0.72rem", color: "var(--teal)", fontWeight: 500 }}>
             🎓 Students can view events without logging in
           </p>
         </div>

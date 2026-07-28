@@ -1,15 +1,17 @@
 /**
- * SDC Club Events Hub — App.jsx v4
+ * SDC Club Events Hub — App.jsx v5
  * Students: public (no login needed)
  * Faculty/Admin: login required
- * Removed: FeaturedScroll horizontal section
+ * NEW: Sidebar navigation + Light/Dark theme toggle
  */
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, createContext, useContext } from "react";
 import axios from "axios";
 import "./App.css";
 import {
   Search, X, Zap, LogOut, BookOpen, Shield,
-  CalendarDays, MapPin, RefreshCw,
+  CalendarDays, MapPin, RefreshCw, Menu,
+  Sun, Moon, Home, PlusCircle, ClipboardList,
+  Users, Settings, User,
 } from "lucide-react";
 
 import LoginPage from "./pages/LoginPage";
@@ -23,7 +25,30 @@ const CATEGORIES = ["All", "Technical", "Cultural", "Workshop", "Sports", "Semin
 const EMOJI = { Technical: "⚙️", Cultural: "🎭", Workshop: "🛠️", Sports: "🏆", Seminar: "📚", Hackathon: "💻", Other: "✨" };
 
 const fmtDateShort = d => new Date(d).toLocaleDateString("en-IN", { day: "numeric", month: "short" });
-const fmtTime = d => new Date(d).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true });
+
+/* ── Theme Context ─────────────────────────────── */
+const ThemeContext = createContext();
+export function useTheme() { return useContext(ThemeContext); }
+
+function ThemeProvider({ children }) {
+  const [theme, setTheme] = useState(() => {
+    try { return localStorage.getItem("sist_theme") || "dark"; }
+    catch { return "dark"; }
+  });
+
+  useEffect(() => {
+    document.documentElement.setAttribute("data-theme", theme);
+    localStorage.setItem("sist_theme", theme);
+  }, [theme]);
+
+  const toggle = () => setTheme(t => t === "dark" ? "light" : "dark");
+
+  return (
+    <ThemeContext.Provider value={{ theme, toggle }}>
+      {children}
+    </ThemeContext.Provider>
+  );
+}
 
 /* ── Toast hook ─────────────────────────────────── */
 export function useToast() {
@@ -39,7 +64,7 @@ export function useToast() {
 /* ── Announcement Ticker ────────────────────────── */
 function Ticker({ events }) {
   if (!events.length) return null;
-  const items = [...events, ...events]; // duplicate for seamless loop
+  const items = [...events, ...events];
   return (
     <div className="ticker-bar" role="marquee" aria-label="Upcoming events ticker">
       <div className="ticker-label">
@@ -78,48 +103,154 @@ function SkeletonCard() {
   );
 }
 
-/* ── Navbar ─────────────────────────────────────── */
-function Navbar({ session, onLogout, onLoginClick }) {
+/* ── Sidebar ───────────────────────────────────── */
+function Sidebar({ open, onClose, session, onLogout, onLoginClick, activeView, onNav }) {
+  const { theme, toggle } = useTheme();
+
+  const handleNav = (view) => {
+    onNav(view);
+    onClose();
+  };
+
   return (
-    <nav className="navbar">
-      <div className="navbar-inner">
-        {/* Logo */}
-        <div className="nav-logo">
-          <span className="nav-logo-dot" />
-          <div className="nav-brand-text">
-            <span className="nav-brand-main">
-              SDC<span style={{ color: "var(--amber-500)" }}> Events</span>
-            </span>
-            <span className="nav-brand-sub">Hub</span>
+    <>
+      <div className={`sidebar-overlay ${open ? "open" : ""}`} onClick={onClose} />
+      <aside className={`sidebar ${open ? "open" : ""}`}>
+        {/* Header */}
+        <div className="sidebar-header">
+          <div className="topbar-logo">
+            <span className="logo-dot" />
+            <div className="logo-text">
+              <span className="logo-main">SDC<span> Events</span></span>
+              <span className="logo-sub">Hub</span>
+            </div>
           </div>
+          <button className="sidebar-close tap" onClick={onClose} aria-label="Close menu">
+            <X size={18} />
+          </button>
         </div>
 
-        {/* Actions */}
-        <div className="nav-actions">
-          {session ? (
-            <>
-              <div className="nav-user-pill hide-xs">
-                {session.role === "faculty" ? <BookOpen size={12} /> : <Shield size={12} />}
-                <span>{session.name}</span>
-                <span style={{ fontSize: "0.62rem", opacity: 0.7, textTransform: "uppercase", letterSpacing: "0.04em" }}>
-                  · {session.role}
-                </span>
-              </div>
-              <button
-                className="btn btn-ghost btn-icon btn-sm tap"
-                onClick={onLogout}
-                title="Sign out">
-                <LogOut size={16} />
-              </button>
-            </>
-          ) : (
-            <button className="btn btn-secondary btn-sm tap" onClick={onLoginClick}>
-              <BookOpen size={14} /> Faculty Login
+        {/* Navigation */}
+        <nav className="sidebar-nav">
+          {session?.role !== "admin" && (
+            <button
+              className={`sidebar-link ${activeView === "events" ? "active" : ""}`}
+              onClick={() => handleNav("events")}
+            >
+              <Home size={18} /> Events
             </button>
           )}
+
+          {session?.role === "faculty" && (
+            <>
+              <button
+                className={`sidebar-link ${activeView === "create" ? "active" : ""}`}
+                onClick={() => handleNav("create")}
+              >
+                <PlusCircle size={18} /> Create Event
+              </button>
+              <button
+                className={`sidebar-link ${activeView === "submissions" ? "active" : ""}`}
+                onClick={() => handleNav("submissions")}
+              >
+                <ClipboardList size={18} /> My Submissions
+              </button>
+            </>
+          )}
+
+          {session?.role === "admin" && (
+            <>
+              <button
+                className={`sidebar-link ${activeView === "admin-events" || activeView === "events" ? "active" : ""}`}
+                onClick={() => handleNav("admin-events")}
+              >
+                <CalendarDays size={18} /> Manage Events
+              </button>
+              <button
+                className={`sidebar-link ${activeView === "admin-faculty" ? "active" : ""}`}
+                onClick={() => handleNav("admin-faculty")}
+              >
+                <Users size={18} /> Faculty
+              </button>
+            </>
+          )}
+
+          <div className="sidebar-divider" />
+
+          {/* Theme toggle in sidebar */}
+          <button className="sidebar-link" onClick={toggle}>
+            {theme === "dark" ? <Sun size={18} /> : <Moon size={18} />}
+            {theme === "dark" ? "Light Mode" : "Dark Mode"}
+          </button>
+
+          {!session && (
+            <button className="sidebar-link" onClick={() => { onLoginClick(); onClose(); }}>
+              <BookOpen size={18} /> Faculty Login
+            </button>
+          )}
+        </nav>
+
+        {/* Footer — user info */}
+        {session && (
+          <div className="sidebar-footer">
+            <div className="sidebar-user">
+              <div className="sidebar-avatar">
+                {session.name?.slice(0, 2).toUpperCase()}
+              </div>
+              <div className="sidebar-user-info">
+                <div className="sidebar-user-name">{session.name}</div>
+                <div className="sidebar-user-role">{session.role}</div>
+              </div>
+              <button className="sidebar-logout tap" onClick={onLogout} title="Sign out">
+                <LogOut size={16} />
+              </button>
+            </div>
+          </div>
+        )}
+      </aside>
+    </>
+  );
+}
+
+/* ── Top Bar ───────────────────────────────────── */
+function TopBar({ onMenuClick, session, onLogout, onLoginClick }) {
+  const { theme, toggle } = useTheme();
+  return (
+    <header className="topbar">
+      <div className="topbar-left">
+        <button className="hamburger tap" onClick={onMenuClick} aria-label="Open menu">
+          <Menu size={20} />
+        </button>
+        <div className="topbar-logo">
+          <span className="logo-dot" />
+          <div className="logo-text">
+            <span className="logo-main">SDC<span> Events</span></span>
+            <span className="logo-sub">Hub</span>
+          </div>
         </div>
       </div>
-    </nav>
+      <div className="topbar-right">
+        {/* Theme Toggle */}
+        <button className="theme-toggle tap" onClick={toggle} aria-label="Toggle theme"
+          title={theme === "dark" ? "Switch to Light Mode" : "Switch to Dark Mode"}>
+          {theme === "dark" ? <Sun size={18} /> : <Moon size={18} />}
+        </button>
+
+        {session ? (
+          <button
+            className="btn btn-ghost btn-icon btn-sm tap"
+            onClick={onLogout}
+            title="Sign out"
+          >
+            <LogOut size={16} />
+          </button>
+        ) : (
+          <button className="btn btn-secondary btn-sm tap" onClick={onLoginClick}>
+            <BookOpen size={14} /> Login
+          </button>
+        )}
+      </div>
+    </header>
   );
 }
 
@@ -155,7 +286,6 @@ function PublicFeed({ showToast }) {
   const filtered = events.filter(e => {
     const isUpcoming = new Date(e.event_date) >= today;
     if (!isUpcoming) return false;
-
     const mc = category === "All" || e.category === category;
     const q = search.toLowerCase();
     return mc && (!q
@@ -167,8 +297,7 @@ function PublicFeed({ showToast }) {
 
   return (
     <div className="page">
-
-      {/* Ticker — scrolling announcement bar */}
+      {/* Ticker */}
       <Ticker events={upcoming} />
 
       {/* Hero */}
@@ -182,7 +311,7 @@ function PublicFeed({ showToast }) {
         <p className="hero-sub animate-in" style={{ animationDelay: "0.14s" }}>
           📍Everything happening at <strong>Sathyabama</strong>, in one place
         </p>
-        <div className="hero-cta animate-in nav-desktop-only" style={{ animationDelay: "0.18s" }}>
+        <div className="hero-cta animate-in" style={{ animationDelay: "0.18s" }}>
           <button className="btn btn-ghost btn-lg tap" onClick={fetchAll}>
             <RefreshCw size={15} /> Refresh
           </button>
@@ -191,7 +320,6 @@ function PublicFeed({ showToast }) {
 
       {/* Main content */}
       <main className="container" style={{ paddingBottom: 48 }}>
-
         {/* Search */}
         <div className="search-wrapper">
           <span className="search-icon-wrap"><Search size={17} /></span>
@@ -252,7 +380,7 @@ function PublicFeed({ showToast }) {
           </div>
         ) : (
           <div className="events-grid">
-            {filtered.map(ev => <EventCard key={ev._id} event={ev} />)}
+            {filtered.map(ev => <EventCard key={ev._id} event={ev} showToast={showToast} />)}
           </div>
         )}
       </main>
@@ -276,24 +404,50 @@ function LoginModal({ onClose, onLogin }) {
 /* ══════════════════════════════════════════════════
    ROOT APP
 ══════════════════════════════════════════════════ */
-export default function App() {
+function AppContent() {
   const [session, setSession] = useState(() => {
     try { return JSON.parse(localStorage.getItem("sist_session") || "null"); }
     catch { return null; }
   });
   const [showLogin, setShowLogin] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [activeView, setActiveView] = useState(() => {
+    try {
+      const sess = JSON.parse(localStorage.getItem("sist_session") || "null");
+      return sess?.role === "admin" ? "admin-events" : "events";
+    } catch { return "events"; }
+  });
   const { toasts, show: showToast } = useToast();
 
   const handleLogin = sess => {
     setSession(sess);
     setShowLogin(false);
+    setActiveView(sess.role === "admin" ? "admin-events" : "events");
     showToast(`Welcome, ${sess.name}! 👋`, "success");
   };
 
   const handleLogout = () => {
     localStorage.removeItem("sist_session");
     setSession(null);
+    setActiveView("events");
+    setSidebarOpen(false);
     showToast("Signed out.", "info");
+  };
+
+  const handleNav = (view) => {
+    setActiveView(view);
+  };
+
+  // Determine what to render based on session + activeView
+  const renderContent = () => {
+    if (!session || session.role === "student") {
+      return <PublicFeed showToast={showToast} />;
+    }
+    if (session.role === "admin") {
+      return <AdminConsole session={session} activeView={activeView} onNav={setActiveView} />;
+    }
+    // Faculty
+    return <FacultyDashboard session={session} showToast={showToast} activeView={activeView} onNav={setActiveView} />;
   };
 
   return (
@@ -308,7 +462,7 @@ export default function App() {
       {/* Toast notifications */}
       <ToastStack toasts={toasts} />
 
-      {/* Faculty / Admin login modal */}
+      {/* Login modal */}
       {showLogin && (
         <LoginModal
           onClose={() => setShowLogin(false)}
@@ -316,29 +470,45 @@ export default function App() {
         />
       )}
 
-      {/* Top navbar — always visible */}
-      <Navbar
+      {/* Sidebar */}
+      <Sidebar
+        open={sidebarOpen}
+        onClose={() => setSidebarOpen(false)}
+        session={session}
+        onLogout={handleLogout}
+        onLoginClick={() => setShowLogin(true)}
+        activeView={activeView}
+        onNav={handleNav}
+      />
+
+      {/* Top Bar */}
+      <TopBar
+        onMenuClick={() => setSidebarOpen(true)}
         session={session}
         onLogout={handleLogout}
         onLoginClick={() => setShowLogin(true)}
       />
 
-      {/* Route by role */}
-      {!session || session.role === "student" ? (
-        <PublicFeed showToast={showToast} />
-      ) : session.role === "admin" ? (
-        <AdminConsole session={session} />
-      ) : (
-        <FacultyDashboard session={session} showToast={showToast} />
-      )}
+      {/* Main Content */}
+      <div className="main-content">
+        {renderContent()}
 
-      <footer className="footer">
-        <p>
-          SDC <strong style={{ color: "var(--amber-500)" }}>Events Hub</strong>
-          {" "}· Sathyabama Institute of Science and Technology
-        </p>
-        <p style={{ marginTop: 3, fontSize: "0.7rem" }}>All campus events, one place. Made by Void Technologies</p>
-      </footer>
+        <footer className="footer">
+          <p>
+            SDC <strong style={{ color: "var(--accent)" }}>Events Hub</strong>
+            {" "}· Sathyabama Institute of Science and Technology
+          </p>
+          <p style={{ marginTop: 3, fontSize: "0.7rem" }}>All campus events, one place. Made by Void Technologies</p>
+        </footer>
+      </div>
     </>
+  );
+}
+
+export default function App() {
+  return (
+    <ThemeProvider>
+      <AppContent />
+    </ThemeProvider>
   );
 }

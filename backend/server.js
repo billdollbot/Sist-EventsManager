@@ -1,7 +1,8 @@
 /**
- * SDC Club Events Hub — server.js v4
+ * SDC Club Events Hub — server.js v5
  * Public: anyone can view approved events (no login for students)
  * Roles:  admin | faculty
+ * NEW: In-app registration with dynamic fields + limits
  */
 
 const express = require("express");
@@ -21,6 +22,7 @@ const MONGO = process.env.MONGO_URI || "mongodb+srv://midhun:midhun123@sistevent
 /* ── Middleware ─────────────────────────────────── */
 const allowedOrigins = [
   "http://localhost:3000",
+  "http://localhost:5173",
   "https://sist-events-manager-iq96.vercel.app",
   process.env.CLIENT_URL
 ].filter(Boolean);
@@ -80,22 +82,50 @@ const clubSchema = new mongoose.Schema({
 }, { timestamps: true });
 const Club = mongoose.model("Club", clubSchema);
 
+/* ── Registration Field sub-schema ─────────────── */
+const registrationFieldSchema = new mongoose.Schema({
+  label:       { type: String, required: true, trim: true },
+  type:        { type: String, required: true, enum: ["text", "email", "number", "select", "textarea", "tel"] },
+  required:    { type: Boolean, default: true },
+  placeholder: { type: String, default: "" },
+  options:     [{ type: String }],   // for select type
+}, { _id: true });
+
 const eventSchema = new mongoose.Schema({
-  title: { type: String, required: true, trim: true, maxlength: 120 },
-  category: { type: String, required: true, enum: ["Technical", "Cultural", "Workshop", "Sports", "Seminar", "Hackathon", "Other"] },
-  club: { type: String, required: true, trim: true },
-  organizer: { type: String, required: true, trim: true },
-  event_date: { type: Date, required: true },
-  location: { type: String, required: true, trim: true },
+  title:       { type: String, required: true, trim: true, maxlength: 120 },
+  category:    { type: String, required: true, enum: ["Technical", "Cultural", "Workshop", "Sports", "Seminar", "Hackathon", "Other"] },
+  club:        { type: String, required: true, trim: true },
+  organizer:   { type: String, required: true, trim: true },
+  event_date:  { type: Date, required: true },
+  location:    { type: String, required: true, trim: true },
   description: { type: String, required: true, maxlength: 1000 },
-  registration_link: { type: String, required: true, trim: true },
-  brochure_path: { type: String, default: null },
+
+  /* Registration — either external link OR built-in form */
+  registration_link:   { type: String, trim: true, default: "" },
+  registration_fields: [registrationFieldSchema],
+  registration_limit:  { type: Number, default: 0 },   // 0 = unlimited
+  registration_count:  { type: Number, default: 0 },
+
+  brochure_path:     { type: String, default: null },
   brochure_cloud_id: { type: String, default: null },
-  created_by: { type: String, required: true },
-  created_by_id: { type: mongoose.Schema.Types.ObjectId, ref: "Faculty" },
-  status: { type: String, enum: ["pending", "approved", "rejected"], default: "pending" },
+  created_by:        { type: String, required: true },
+  created_by_id:     { type: mongoose.Schema.Types.ObjectId, ref: "Faculty" },
+  status:            { type: String, enum: ["pending", "approved", "rejected"], default: "pending" },
 }, { timestamps: true });
 const Event = mongoose.model("Event", eventSchema);
+
+/* ── Registration schema ───────────────────────── */
+const registrationSchema = new mongoose.Schema({
+  eventId:      { type: mongoose.Schema.Types.ObjectId, ref: "Event", required: true, index: true },
+  formData:     { type: mongoose.Schema.Types.Mixed, required: true },  // { fieldLabel: value, ... }
+  email:        { type: String, trim: true, lowercase: true, default: "" },  // for duplicate detection
+  registeredAt: { type: Date, default: Date.now },
+}, { timestamps: true });
+
+// Compound index for duplicate prevention: one email per event
+registrationSchema.index({ eventId: 1, email: 1 }, { unique: true, partialFilterExpression: { email: { $ne: "" } } });
+
+const Registration = mongoose.model("Registration", registrationSchema);
 
 /* ── Seed defaults ──────────────────────────────── */
 mongoose.connection.once("open", async () => {
@@ -176,10 +206,88 @@ app.get("/api/clubs", wrap(async (_req, res) => {
 }));
 
 /* ══════════════════════════════════════════════════
+   PUBLIC REGISTRATION ROUTES
+══════════════════════════════════════════════════ */
+
+/* Get registration count for an event */
+app.get("/api/events/:id/registration-count", wrap(async (req, res) => {
+  const event = await Event.findById(req.params.id).select("registration_count registration_limit registration_fields").lean();
+  if (!event) return res.status(404).json({ message: "Event not found." });
+  res.json({
+    count: event.registration_count || 0,
+    limit: event.registration_limit || 0,
+    hasForm: event.registration_fields && event.registration_fields.length > 0,
+  });
+}));
+
+/* Register for an event — public */
+app.post("/api/events/:id/register", wrap(async (req, res) => {
+  const event = await Event.findById(req.params.id);
+  if (!event) return res.status(404).json({ message: "Event not found." });
+  if (event.status !== "approved") return res.status(400).json({ message: "Event is not open for registration." });
+  if (!event.registration_fields || event.registration_fields.length === 0) {
+    return res.status(400).json({ message: "This event does not have an in-app registration form." });
+  }
+
+  // Check limit
+  if (event.registration_limit > 0 && event.registration_count >= event.registration_limit) {
+    return res.status(400).json({ message: "Registration is full. Maximum limit reached." });
+  }
+
+  const { formData } = req.body;
+  if (!formData || typeof formData !== "object") {
+    return res.status(400).json({ message: "Form data is required." });
+  }
+
+  // Validate required fields
+  const missingFields = [];
+  let emailValue = "";
+  for (const field of event.registration_fields) {
+    const val = formData[field.label];
+    if (field.required && (!val || String(val).trim() === "")) {
+      missingFields.push(field.label);
+    }
+    if (field.type === "email" && val) {
+      emailValue = String(val).trim().toLowerCase();
+    }
+  }
+  if (missingFields.length > 0) {
+    return res.status(400).json({ message: `Missing required fields: ${missingFields.join(", ")}` });
+  }
+
+  // Email validation
+  if (emailValue && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailValue)) {
+    return res.status(400).json({ message: "Please enter a valid email address." });
+  }
+
+  // Check for duplicate (by email if available)
+  if (emailValue) {
+    const existing = await Registration.findOne({ eventId: event._id, email: emailValue });
+    if (existing) {
+      return res.status(409).json({ message: "You have already registered for this event with this email." });
+    }
+  }
+
+  // Create registration
+  const registration = await Registration.create({
+    eventId: event._id,
+    formData,
+    email: emailValue,
+  });
+
+  // Increment count atomically
+  await Event.findByIdAndUpdate(event._id, { $inc: { registration_count: 1 } });
+
+  res.status(201).json({ message: "Registration successful! 🎉", registration });
+}));
+
+/* ══════════════════════════════════════════════════
    FACULTY ROUTES
 ══════════════════════════════════════════════════ */
 app.post("/api/faculty/events", upload.single("brochure"), wrap(async (req, res) => {
-  const { title, category, club, organizer, event_date, location, description, registration_link, faculty_id, faculty_name } = req.body;
+  const { title, category, club, organizer, event_date, location, description,
+    registration_link, registration_fields, registration_limit,
+    faculty_id, faculty_name } = req.body;
 
   let brochure_path = null;
   let brochure_cloud_id = null;
@@ -198,10 +306,24 @@ app.post("/api/faculty/events", upload.single("brochure"), wrap(async (req, res)
     }
   }
 
+  // Parse registration_fields if it's a JSON string
+  let parsedFields = [];
+  if (registration_fields) {
+    try {
+      parsedFields = typeof registration_fields === "string"
+        ? JSON.parse(registration_fields)
+        : registration_fields;
+    } catch { parsedFields = []; }
+  }
+
   const event = await Event.create({
     title, category, club, organizer,
     event_date: new Date(event_date),
-    location, description, registration_link, brochure_path, brochure_cloud_id,
+    location, description,
+    registration_link: registration_link || "",
+    registration_fields: parsedFields,
+    registration_limit: parseInt(registration_limit) || 0,
+    brochure_path, brochure_cloud_id,
     created_by: faculty_name || "Faculty",
     created_by_id: faculty_id || null,
     status: "pending",
@@ -212,6 +334,65 @@ app.post("/api/faculty/events", upload.single("brochure"), wrap(async (req, res)
 app.get("/api/faculty/events/:facultyId", wrap(async (req, res) => {
   const events = await Event.find({ created_by_id: req.params.facultyId }).sort({ createdAt: -1 }).lean();
   res.json(events);
+}));
+
+/* ── Faculty: view registrations for their event ── */
+app.get("/api/faculty/events/:eventId/registrations", wrap(async (req, res) => {
+  const event = await Event.findById(req.params.eventId).lean();
+  if (!event) return res.status(404).json({ message: "Event not found." });
+
+  const registrations = await Registration.find({ eventId: req.params.eventId })
+    .sort({ registeredAt: -1 }).lean();
+  res.json({
+    event: {
+      _id: event._id,
+      title: event.title,
+      registration_fields: event.registration_fields,
+      registration_limit: event.registration_limit,
+      registration_count: event.registration_count,
+    },
+    registrations,
+  });
+}));
+
+/* ── Faculty: delete a registration ────────────── */
+app.delete("/api/faculty/events/:eventId/registrations/:regId", wrap(async (req, res) => {
+  const reg = await Registration.findOneAndDelete({
+    _id: req.params.regId,
+    eventId: req.params.eventId,
+  });
+  if (!reg) return res.status(404).json({ message: "Registration not found." });
+
+  // Decrement count
+  await Event.findByIdAndUpdate(req.params.eventId, { $inc: { registration_count: -1 } });
+  res.json({ message: "Registration removed." });
+}));
+
+/* ── Faculty: export registrations as CSV ──────── */
+app.get("/api/faculty/events/:eventId/registrations/export", wrap(async (req, res) => {
+  const event = await Event.findById(req.params.eventId).lean();
+  if (!event) return res.status(404).json({ message: "Event not found." });
+
+  const registrations = await Registration.find({ eventId: req.params.eventId })
+    .sort({ registeredAt: 1 }).lean();
+
+  // Build CSV
+  const fields = (event.registration_fields || []).map(f => f.label);
+  const header = ["S.No", ...fields, "Registered At"].join(",");
+  const rows = registrations.map((r, i) => {
+    const vals = fields.map(f => {
+      const v = r.formData?.[f] ?? "";
+      // Escape CSV values
+      return `"${String(v).replace(/"/g, '""')}"`;
+    });
+    const date = new Date(r.registeredAt).toLocaleString("en-IN");
+    return [i + 1, ...vals, `"${date}"`].join(",");
+  });
+
+  const csv = [header, ...rows].join("\n");
+  res.setHeader("Content-Type", "text/csv");
+  res.setHeader("Content-Disposition", `attachment; filename="${event.title.replace(/[^a-zA-Z0-9]/g, "_")}_registrations.csv"`);
+  res.send(csv);
 }));
 
 /* ══════════════════════════════════════════════════
@@ -233,12 +414,33 @@ app.patch("/api/admin/events/:id/status", wrap(async (req, res) => {
 app.delete("/api/admin/events/:id", wrap(async (req, res) => {
   const event = await Event.findByIdAndDelete(req.params.id);
   if (!event) return res.status(404).json({ message: "Not found." });
+  // Also delete all registrations for this event
+  await Registration.deleteMany({ eventId: event._id });
   if (event.brochure_cloud_id) {
     deleteFromCloudinary(event.brochure_cloud_id);
   } else {
     delFile(event.brochure_path);
   }
   res.json({ message: "Deleted." });
+}));
+
+/* ── Admin: view registrations for any event ───── */
+app.get("/api/admin/events/:eventId/registrations", wrap(async (req, res) => {
+  const event = await Event.findById(req.params.eventId).lean();
+  if (!event) return res.status(404).json({ message: "Event not found." });
+
+  const registrations = await Registration.find({ eventId: req.params.eventId })
+    .sort({ registeredAt: -1 }).lean();
+  res.json({
+    event: {
+      _id: event._id,
+      title: event.title,
+      registration_fields: event.registration_fields,
+      registration_limit: event.registration_limit,
+      registration_count: event.registration_count,
+    },
+    registrations,
+  });
 }));
 
 /* ══════════════════════════════════════════════════
@@ -309,6 +511,8 @@ cron.schedule("0 0 * * *", async () => {
   const cut = new Date(); cut.setDate(cut.getDate() - 5);
   const stale = await Event.find({ event_date: { $lt: cut } });
   for (const e of stale) {
+    // Delete registrations for stale events
+    await Registration.deleteMany({ eventId: e._id });
     if (e.brochure_cloud_id) {
       await deleteFromCloudinary(e.brochure_cloud_id);
     } else {

@@ -1,14 +1,15 @@
 /**
- * pages/AdminConsole.jsx
- * Admin panel: Events approval, Faculty management, Student management
+ * pages/AdminConsole.jsx v5
+ * Admin panel: Events approval, Faculty management + Registration viewing
  */
 import { useState, useEffect, useCallback } from "react";
 import axios from "axios";
 import {
   Shield, Users, CalendarDays, Plus, Trash2,
   CheckCircle, XCircle, Clock, Eye, X, RefreshCw,
-  UserPlus, Edit2, ToggleLeft, ToggleRight, ChevronDown,
+  UserPlus, ToggleLeft, ToggleRight, ClipboardList,
 } from "lucide-react";
+import RegistrationTracker from "../components/RegistrationTracker";
 
 const API = import.meta.env.VITE_API_URL || "http://localhost:5000";
 
@@ -33,7 +34,7 @@ function ConfirmModal({ msg, onConfirm, onCancel }) {
         <div className="drag-handle" />
         <div className="modal-body" style={{ textAlign: "center", padding: "32px 24px" }}>
           <div style={{ width: 56, height: 56, borderRadius: "50%", background: "var(--rose-glow)", border: "1px solid rgba(251,113,133,0.3)", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 16px" }}>
-            <Trash2 size={24} color="var(--rose-400)" />
+            <Trash2 size={24} color="var(--rose)" />
           </div>
           <p style={{ fontFamily: "var(--ff-display)", fontWeight: 700, fontSize: "1rem", marginBottom: 8 }}>Are you sure?</p>
           <p className="text-muted text-sm" style={{ marginBottom: 24 }}>{msg}</p>
@@ -83,18 +84,16 @@ function AddModal({ type, onClose, onSave }) {
         </div>
         <div className="modal-body" style={{ display: "flex", flexDirection: "column", gap: 14 }}>
           {err && (
-            <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 14px", background: "var(--rose-glow)", border: "1px solid rgba(251,113,133,0.3)", borderRadius: "var(--radius-sm)", fontSize: "0.82rem", color: "var(--rose-400)" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 14px", background: "var(--rose-glow)", border: "1px solid rgba(251,113,133,0.3)", borderRadius: "var(--r-sm)", fontSize: "0.82rem", color: "var(--rose)" }}>
               <X size={13} /> {err}
             </div>
           )}
 
-          {/* Name */}
           <div className="form-group">
             <label className="form-label">Full Name *</label>
             <input className="form-input" placeholder="e.g. Dr. Ramesh Kumar" value={form.name} onChange={set("name")} />
           </div>
 
-          {/* Identifier */}
           {isFaculty ? (
             <div className="form-group">
               <label className="form-label">Username *</label>
@@ -108,19 +107,16 @@ function AddModal({ type, onClose, onSave }) {
             </div>
           )}
 
-          {/* Password */}
           <div className="form-group">
             <label className="form-label">Password *</label>
             <input className="form-input" type="password" placeholder="Set a password" value={form.password} onChange={set("password")} />
           </div>
 
-          {/* Department */}
           <div className="form-group">
             <label className="form-label">Department</label>
             <input className="form-input" placeholder="e.g. Computer Science" value={form.department} onChange={set("department")} />
           </div>
 
-          {/* Year (students only) */}
           {!isFaculty && (
             <div className="form-group">
               <label className="form-label">Year</label>
@@ -149,6 +145,7 @@ function AddModal({ type, onClose, onSave }) {
 function EventDetailModal({ event, onClose, onApprove, onReject, acting }) {
   if (!event) return null;
   const BADGE = { Technical: "badge-technical", Cultural: "badge-cultural", Workshop: "badge-workshop", Sports: "badge-sports", Seminar: "badge-seminar", Hackathon: "badge-hackathon", Other: "badge-other" };
+  const hasForm = event.registration_fields && event.registration_fields.length > 0;
   return (
     <div className="overlay" onClick={onClose}>
       <div className="modal" style={{ maxWidth: 560 }} onClick={e => e.stopPropagation()}>
@@ -169,6 +166,25 @@ function EventDetailModal({ event, onClose, onApprove, onReject, acting }) {
               <div key={k}><p className="text-xs text-muted mb-4">{k}</p><p className="text-sm fw-600">{v}</p></div>
             ))}
           </div>
+
+          {/* Registration info */}
+          {hasForm && (
+            <div style={{ background: "var(--accent-glow)", border: "1px solid var(--accent-ring)", borderRadius: "var(--r-sm)", padding: "10px 14px" }}>
+              <p className="text-xs fw-700" style={{ color: "var(--accent)", marginBottom: 6 }}>
+                📝 In-App Registration Form
+              </p>
+              <div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
+                <span className="text-xs text-muted">
+                  Fields: <strong style={{ color: "var(--text-primary)" }}>{event.registration_fields.length}</strong>
+                </span>
+                <span className="text-xs text-muted">
+                  Registered: <strong style={{ color: "var(--accent)" }}>{event.registration_count || 0}</strong>
+                  {event.registration_limit > 0 && <> / {event.registration_limit}</>}
+                </span>
+              </div>
+            </div>
+          )}
+
           {event.status === "pending" && (
             <div style={{ display: "flex", gap: 10, marginTop: 8 }}>
               <button className={`btn btn-teal tap ${acting === event._id + "approved" ? "btn-loading" : ""}`} style={{ flex: 1 }} onClick={() => onApprove(event._id)} disabled={!!acting}>
@@ -188,8 +204,9 @@ function EventDetailModal({ event, onClose, onApprove, onReject, acting }) {
 /* ══════════════════════════════════════════════════
    MAIN ADMIN CONSOLE
 ══════════════════════════════════════════════════ */
-export default function AdminConsole({ session }) {
-  const [tab, setTab] = useState("events");
+export default function AdminConsole({ session, activeView, onNav }) {
+  // Map activeView to internal tab
+  const tab = activeView === "admin-faculty" ? "faculty" : "events";
 
   /* events */
   const [events, setEvents] = useState([]);
@@ -197,13 +214,13 @@ export default function AdminConsole({ session }) {
   const [evLoading, setEvLoading] = useState(false);
   const [acting, setActing] = useState(null);
   const [detailEvent, setDetailEvent] = useState(null);
+  const [trackingEvent, setTrackingEvent] = useState(null);
 
   /* faculty */
   const [faculty, setFaculty] = useState([]);
   const [facLoading, setFacLoading] = useState(false);
   const [showAddFac, setShowAddFac] = useState(false);
   const [deleteFac, setDeleteFac] = useState(null);
-
   const [facSearch, setFacSearch] = useState("");
 
   const { toasts, show } = useToast();
@@ -261,14 +278,13 @@ export default function AdminConsole({ session }) {
     catch { show("Delete failed", "error"); }
   };
 
-
   /* ── Derived ──────────────────────────────────── */
   const pendingCount = events.filter(e => e.status === "pending").length;
   const filteredFac = faculty.filter(f => f.name.toLowerCase().includes(facSearch.toLowerCase()) || f.username.toLowerCase().includes(facSearch.toLowerCase()));
 
   const TABS = [
-    { key: "events", label: "Events", icon: CalendarDays, count: pendingCount },
-    { key: "faculty", label: "Faculty", icon: Users, count: faculty.length },
+    { key: "admin-events", label: "Events", icon: CalendarDays, count: pendingCount },
+    { key: "admin-faculty", label: "Faculty", icon: Users, count: faculty.length },
   ];
 
   const BADGE_MAP = { Technical: "badge-technical", Cultural: "badge-cultural", Workshop: "badge-workshop", Sports: "badge-sports", Seminar: "badge-seminar", Hackathon: "badge-hackathon", Other: "badge-other" };
@@ -289,46 +305,40 @@ export default function AdminConsole({ session }) {
       {showAddFac && <AddModal type="faculty" onClose={() => setShowAddFac(false)} onSave={addFaculty} />}
       {deleteFac && <ConfirmModal msg={`Remove faculty "${deleteFac.name}"? Their events will remain.`} onConfirm={() => deleteFaculty(deleteFac._id)} onCancel={() => setDeleteFac(null)} />}
       {detailEvent && <EventDetailModal event={detailEvent} onClose={() => setDetailEvent(null)} onApprove={id => updateEventStatus(id, "approved")} onReject={id => updateEventStatus(id, "rejected")} acting={acting} />}
+      {trackingEvent && <RegistrationTracker eventId={trackingEvent} onClose={() => setTrackingEvent(null)} showToast={show} />}
 
       <div className="container" style={{ paddingTop: 28, paddingBottom: 80 }}>
-
         {/* Header */}
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 24, flexWrap: "wrap", gap: 12 }}>
           <div>
             <div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 4 }}>
-              <Shield size={16} color="var(--rose-400)" />
-              <span style={{ fontSize: "0.68rem", fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: "var(--rose-400)" }}>Admin Console</span>
+              <Shield size={16} color="var(--rose)" />
+              <span style={{ fontSize: "0.68rem", fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: "var(--rose)" }}>Admin Console</span>
             </div>
             <h1 style={{ fontFamily: "var(--ff-display)", fontSize: "clamp(1.3rem,4vw,1.9rem)", fontWeight: 800 }}>
               Welcome, {session.name}
             </h1>
           </div>
-          {/* Stats row */}
           <div style={{ display: "flex", gap: 10 }}>
-            {[["Faculty", faculty.length, "var(--amber-400)"], ["Pending", pendingCount, "var(--rose-400)"]].map(([l, v, c]) => (
-              <div key={l} style={{ background: "var(--navy-800)", border: "1px solid var(--border-subtle)", borderRadius: "var(--radius-sm)", padding: "8px 14px", textAlign: "center", minWidth: 70 }}>
-                <div style={{ fontFamily: "var(--ff-display)", fontSize: "1.3rem", fontWeight: 800, color: c, lineHeight: 1 }}>{v}</div>
-                <div style={{ fontSize: "0.62rem", color: "var(--text-secondary)", textTransform: "uppercase", letterSpacing: "0.05em", marginTop: 2 }}>{l}</div>
+            {tab === "events" ? (
+              <div style={{ background: "var(--card-bg)", border: "1px solid var(--border-subtle)", borderRadius: "var(--r-sm)", padding: "8px 14px", textAlign: "center", minWidth: 70 }}>
+                <div style={{ fontFamily: "var(--ff-display)", fontSize: "1.3rem", fontWeight: 800, color: "var(--rose)", lineHeight: 1 }}>{pendingCount}</div>
+                <div style={{ fontSize: "0.62rem", color: "var(--text-secondary)", textTransform: "uppercase", letterSpacing: "0.05em", marginTop: 2 }}>Pending</div>
               </div>
-            ))}
+            ) : (
+              <div style={{ background: "var(--card-bg)", border: "1px solid var(--border-subtle)", borderRadius: "var(--r-sm)", padding: "8px 14px", textAlign: "center", minWidth: 70 }}>
+                <div style={{ fontFamily: "var(--ff-display)", fontSize: "1.3rem", fontWeight: 800, color: "var(--accent)", lineHeight: 1 }}>{faculty.length}</div>
+                <div style={{ fontSize: "0.62rem", color: "var(--text-secondary)", textTransform: "uppercase", letterSpacing: "0.05em", marginTop: 2 }}>Faculty</div>
+              </div>
+            )}
           </div>
         </div>
 
-        {/* Tabs */}
-        <div className="dash-tabs" style={{ marginBottom: 20 }}>
-          {TABS.map(({ key, label, icon: Icon, count }) => (
-            <button key={key} className={`dash-tab tap ${tab === key ? "active" : ""}`} onClick={() => setTab(key)}>
-              <Icon size={15} />
-              <span>{label}</span>
-              {count > 0 && <span className="count-badge" style={{ background: tab === key ? "var(--amber-500)" : "var(--navy-700)", color: tab === key ? "#000" : "var(--text-secondary)" }}>{count}</span>}
-            </button>
-          ))}
-        </div>
+
 
         {/* ── EVENTS TAB ────────────────────────── */}
         {tab === "events" && (
           <div>
-            {/* Filter */}
             <div className="filter-bar" style={{ marginBottom: 16 }}>
               {["pending", "approved", "rejected", "all"].map(f => (
                 <button key={f} className={`chip tap ${evFilter === f ? "active" : ""}`} onClick={() => setEvFilter(f)} style={{ textTransform: "capitalize" }}>{f}</button>
@@ -340,32 +350,45 @@ export default function AdminConsole({ session }) {
 
             {evLoading ? (
               <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                {[1, 2, 3].map(i => <div key={i} className="skeleton" style={{ height: 100, borderRadius: "var(--radius-md)" }} />)}
+                {[1, 2, 3].map(i => <div key={i} className="skeleton" style={{ height: 100, borderRadius: "var(--r-md)" }} />)}
               </div>
             ) : events.length === 0 ? (
               <div className="empty-state"><div className="empty-icon">📋</div><p className="empty-title">No {evFilter} events</p></div>
             ) : (
               <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                {events.map(ev => (
-                  <div key={ev._id} className="queue-item">
-                    <div style={{ minWidth: 0 }}>
-                      <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 7 }}>
-                        <span className={`badge ${BADGE_MAP[ev.category] || "badge-other"}`}>{ev.category}</span>
-                        <span className={`badge badge-${ev.status}`}>{ev.status}</span>
+                {events.map(ev => {
+                  const hasForm = ev.registration_fields && ev.registration_fields.length > 0;
+                  return (
+                    <div key={ev._id} className="queue-item">
+                      <div style={{ minWidth: 0 }}>
+                        <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 7 }}>
+                          <span className={`badge ${BADGE_MAP[ev.category] || "badge-other"}`}>{ev.category}</span>
+                          <span className={`badge badge-${ev.status}`}>{ev.status}</span>
+                          {hasForm && (
+                            <span className="badge badge-upcoming" style={{ cursor: "pointer" }} onClick={() => setTrackingEvent(ev._id)} title="View registrations">
+                              <Users size={9} /> {ev.registration_count || 0}{ev.registration_limit > 0 ? `/${ev.registration_limit}` : ""}
+                            </span>
+                          )}
+                        </div>
+                        <p className="fw-700 truncate" style={{ fontSize: "0.9rem", marginBottom: 4 }}>{ev.title}</p>
+                        <p className="text-xs text-muted">{ev.organizer} · {ev.created_by} · {fmtDate(ev.event_date)}</p>
                       </div>
-                      <p className="fw-700 truncate" style={{ fontSize: "0.9rem", marginBottom: 4 }}>{ev.title}</p>
-                      <p className="text-xs text-muted">{ev.organizer} · {ev.created_by} · {fmtDate(ev.event_date)}</p>
+                      <div className="queue-actions">
+                        <button className="action-btn tap" onClick={() => setDetailEvent(ev)} title="View" style={{ borderColor: "var(--border-default)", color: "var(--text-secondary)" }}><Eye size={15} /></button>
+                        {hasForm && (
+                          <button className="action-btn tap" onClick={() => setTrackingEvent(ev._id)} title="Registrations" style={{ borderColor: "var(--accent-ring)", color: "var(--accent)" }}>
+                            <ClipboardList size={15} />
+                          </button>
+                        )}
+                        {ev.status === "pending" && <>
+                          <button className={`action-btn action-approve tap ${acting === ev._id + "approved" ? "btn-loading" : ""}`} onClick={() => updateEventStatus(ev._id, "approved")} disabled={!!acting} title="Approve">{acting !== ev._id + "approved" && <CheckCircle size={15} />}</button>
+                          <button className={`action-btn action-reject tap ${acting === ev._id + "rejected" ? "btn-loading" : ""}`} onClick={() => updateEventStatus(ev._id, "rejected")} disabled={!!acting} title="Reject">{acting !== ev._id + "rejected" && <XCircle size={15} />}</button>
+                        </>}
+                        <button className="action-btn action-delete tap" onClick={() => deleteEvent(ev._id)} title="Delete"><Trash2 size={14} /></button>
+                      </div>
                     </div>
-                    <div className="queue-actions">
-                      <button className="action-btn tap" onClick={() => setDetailEvent(ev)} title="View" style={{ borderColor: "var(--border-light)", color: "var(--text-secondary)" }}><Eye size={15} /></button>
-                      {ev.status === "pending" && <>
-                        <button className={`action-btn action-approve tap ${acting === ev._id + "approved" ? "btn-loading" : ""}`} onClick={() => updateEventStatus(ev._id, "approved")} disabled={!!acting} title="Approve">{acting !== ev._id + "approved" && <CheckCircle size={15} />}</button>
-                        <button className={`action-btn action-reject tap ${acting === ev._id + "rejected" ? "btn-loading" : ""}`} onClick={() => updateEventStatus(ev._id, "rejected")} disabled={!!acting} title="Reject">{acting !== ev._id + "rejected" && <XCircle size={15} />}</button>
-                      </>}
-                      <button className="action-btn action-delete tap" onClick={() => deleteEvent(ev._id)} title="Delete"><Trash2 size={14} /></button>
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>
@@ -384,16 +407,16 @@ export default function AdminConsole({ session }) {
             </div>
 
             {facLoading ? (
-              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>{[1, 2, 3].map(i => <div key={i} className="skeleton" style={{ height: 80, borderRadius: "var(--radius-md)" }} />)}</div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>{[1, 2, 3].map(i => <div key={i} className="skeleton" style={{ height: 80, borderRadius: "var(--r-md)" }} />)}</div>
             ) : filteredFac.length === 0 ? (
               <div className="empty-state"><div className="empty-icon">👨‍🏫</div><p className="empty-title">{facSearch ? "No results" : "No faculty added yet"}</p><p className="empty-sub">Use the button above to add faculty members.</p></div>
             ) : (
               <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                 {filteredFac.map(f => (
-                  <div key={f._id} style={{ background: "var(--navy-800)", border: "1px solid var(--border-subtle)", borderRadius: "var(--radius-md)", padding: "14px 16px", display: "grid", gridTemplateColumns: "1fr auto", gap: 12, alignItems: "center" }}>
+                  <div key={f._id} style={{ background: "var(--card-bg)", border: "1px solid var(--border-subtle)", borderRadius: "var(--r-md)", padding: "14px 16px", display: "grid", gridTemplateColumns: "1fr auto", gap: 12, alignItems: "center" }}>
                     <div style={{ minWidth: 0 }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
-                        <div style={{ width: 36, height: 36, borderRadius: "50%", background: "var(--amber-glow)", border: "1px solid var(--amber-ring)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "0.75rem", fontWeight: 700, color: "var(--amber-400)", flexShrink: 0 }}>
+                        <div style={{ width: 36, height: 36, borderRadius: "50%", background: "var(--accent-glow)", border: "1px solid var(--accent-ring)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "0.75rem", fontWeight: 700, color: "var(--accent)", flexShrink: 0 }}>
                           {f.name.slice(0, 2).toUpperCase()}
                         </div>
                         <div style={{ minWidth: 0 }}>
@@ -407,7 +430,7 @@ export default function AdminConsole({ session }) {
                         {f.isActive ? "Active" : "Inactive"}
                       </span>
                       <button className="action-btn tap" title={f.isActive ? "Deactivate" : "Activate"}
-                        style={{ borderColor: "var(--border-light)", color: f.isActive ? "var(--teal-400)" : "var(--text-muted)" }}
+                        style={{ borderColor: "var(--border-default)", color: f.isActive ? "var(--teal)" : "var(--text-muted)" }}
                         onClick={() => toggleFaculty(f._id, f.isActive)}>
                         {f.isActive ? <ToggleRight size={16} /> : <ToggleLeft size={16} />}
                       </button>
@@ -421,8 +444,6 @@ export default function AdminConsole({ session }) {
             )}
           </div>
         )}
-
-
       </div>
     </div>
   );
