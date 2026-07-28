@@ -119,7 +119,6 @@ function Sidebar({ open, onClose, session, onLogout, onLoginClick, activeView, o
         {/* Header */}
         <div className="sidebar-header">
           <div className="topbar-logo">
-            <span className="logo-dot" />
             <div className="logo-text">
               <span className="logo-main">SDC<span> Events</span></span>
               <span className="logo-sub">Hub</span>
@@ -222,7 +221,6 @@ function TopBar({ onMenuClick, session, onLogout, onLoginClick }) {
           <Menu size={20} />
         </button>
         <div className="topbar-logo">
-          <span className="logo-dot" />
           <div className="logo-text">
             <span className="logo-main">SDC<span> Events</span></span>
             <span className="logo-sub">Hub</span>

@@ -54,7 +54,6 @@ export default function LoginPage({ onLogin, onClose }) {
         {/* Logo */}
         <div style={{ textAlign: "center", marginBottom: 24 }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 7, marginBottom: 6 }}>
-            <span className="logo-dot" />
             <span style={{ fontFamily: "var(--ff-display)", fontSize: "1.4rem", fontWeight: 800, letterSpacing: "-0.04em" }}>
               SDC<span style={{ color: "var(--accent)" }}> Events</span>
             </span>
